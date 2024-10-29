@@ -2,6 +2,9 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
+using Color = System.Drawing.Color;
 
 namespace MemoNotes;
 
@@ -26,6 +29,23 @@ public partial class TextBoxWindow
 
         // Инициализируем состояние заполнителя
         UpdatePlaceholder();
+    }
+    
+    public void BlinkBorder()
+    {
+        var animation = new ColorAnimation
+        {
+            From = System.Windows.Media.Color.FromRgb(28, 28, 28),
+            To = Colors.Blue,
+            Duration = TimeSpan.FromMilliseconds(300),
+            AutoReverse = true,
+            RepeatBehavior = new RepeatBehavior(3)
+        };
+
+        var borderBrush = new SolidColorBrush(Colors.Transparent);
+        MainBorder.BorderBrush = borderBrush;
+        
+        borderBrush.BeginAnimation(SolidColorBrush.ColorProperty, animation);
     }
     
     private void Window_SizeChanged(object sender, SizeChangedEventArgs e)

@@ -14,7 +14,7 @@ public partial class MainWindow : Window
     private NotifyIcon notifyIcon; // Иконка для системного трея
     private readonly double cornerMargin = 30; // Уменьшение порога в пикселях для правого верхнего угла
     private readonly DispatcherTimer checkMouseTimer;
-    private PopupButtonWindow popupButtonWindow;
+    private PopupButtonWindow? popupButtonWindow;
 
     public MainWindow()
     {
@@ -70,15 +70,13 @@ public partial class MainWindow : Window
         Hide(); // Скрываем окно
     }
 
-    private void CheckMousePosition(object sender, EventArgs e)
+    private void CheckMousePosition(object? sender, EventArgs e)
     {
         var mousePosition = GetMousePosition();
         var screenWidth = SystemParameters.PrimaryScreenWidth;
-
-        // Проверяем, находится ли курсор в верхнем правом углу
+        
         if (mousePosition.X >= screenWidth - cornerMargin && mousePosition.Y <= cornerMargin)
         {
-            // Убедимся, что окно с таймером отображается
             if (popupButtonWindow == null || !popupButtonWindow.IsVisible)
             {
                 popupButtonWindow = new PopupButtonWindow
@@ -93,7 +91,8 @@ public partial class MainWindow : Window
         {
             // Скрываем окно с таймером, если курсор покидает угол
             popupButtonWindow?.Hide();
-            popupButtonWindow = null; // Убираем ссылку на окно
+            popupButtonWindow?.TerminateRun();
+            popupButtonWindow = null;
         }
     }
 

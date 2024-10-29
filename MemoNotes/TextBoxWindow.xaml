@@ -4,7 +4,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         mc:Ignorable="d"
-        Title="Memo Notes" Height="100" Width="300" MinWidth="500" MinHeight="150" 
+        Title="Memo Notes" Height="300" Width="500" MinWidth="500" MinHeight="300" 
         WindowStyle="None" AllowsTransparency="True" Background="#262626"
         Topmost="True" ShowInTaskbar="False"
         WindowStartupLocation="CenterScreen"
@@ -28,7 +28,8 @@
     </WindowChrome.WindowChrome>
     
     <Grid>
-        <Border Background="#262626" BorderBrush="#FF1D1D1D" BorderThickness="1"
+        <Border x:Name="MainBorder" 
+                Background="#262626" BorderBrush="#1c1c1c" BorderThickness="1"
                 MouseDown="TitleBar_MouseDown">
             <Grid>
                 <Button Height="20"
@@ -82,7 +83,7 @@
         
         <TextBox 
             x:Name="InputTextBox" 
-            MinWidth="500" 
+            MinWidth="300" 
             MinHeight="150" 
             Background="#262626" 
             Foreground="#FFFFFF" 
@@ -90,7 +91,7 @@
             VerticalAlignment="Stretch"
             TextWrapping="Wrap"
             AcceptsReturn="True"
-            Margin="7,30,7,7"
+            Margin="7,32,7,7"
             TextChanged="MainTextBox_TextChanged"/>
         <Label 
             x:Name="PlaceholderLabel" 
@@ -98,7 +99,7 @@
             Foreground="LightGray" 
             HorizontalAlignment="Left" 
             VerticalAlignment="Top"
-            Margin="7,27,0,0"
+            Margin="7,29,0,0"
             IsHitTestVisible="False" />
     </Grid>
 </Window>
