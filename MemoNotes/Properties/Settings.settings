@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<SettingsFile xmlns="urn:schemas-microsoft-com:settings">
+    <Settings>
+        <Setting Name="WindowWidth" Type="System.Double" Scope="User">
+            <Value Profile="(Default)">800</Value>
+        </Setting>
+        <Setting Name="WindowHeight" Type="System.Double" Scope="User">
+            <Value Profile="(Default)">600</Value>
+        </Setting>
+    </Settings>
+</SettingsFile>
