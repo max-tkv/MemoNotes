@@ -8,9 +8,20 @@
         <UseWPF>true</UseWPF>
         <UseWindowsForms>true</UseWindowsForms>
         <ApplicationIcon>logo.ico</ApplicationIcon>
-        <Authors>Maxter</Authors>
-        <Description>Fastest notes</Description>
         <PackageIcon>logo.ico</PackageIcon>
+
+        <!-- Основные метаданные приложения -->
+        <Title>MemoNotes</Title>
+        <Description>Fastest notes</Description>
+        <Company>Maxter</Company>
+        <Product>MemoNotes</Product>
+        <Authors>Maxter</Authors>
+        <Copyright>© 2024 Maxter</Copyright>
+
+        <!-- Версия -->
+        <Version>1.0.0-beta1</Version>
+        <AssemblyVersion>1.0.0.0</AssemblyVersion>
+        <FileVersion>1.0.0.0</FileVersion>
     </PropertyGroup>
 
     <ItemGroup>
