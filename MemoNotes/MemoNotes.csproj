@@ -19,7 +19,7 @@
         <Copyright>© 2024 Maxter</Copyright>
 
         <!-- Версия -->
-        <Version>1.0.0-beta1</Version>
+        <Version>1.0.0-beta2</Version>
         <AssemblyVersion>1.0.0.0</AssemblyVersion>
         <FileVersion>1.0.0.0</FileVersion>
     </PropertyGroup>
