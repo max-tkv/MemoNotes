@@ -186,7 +186,7 @@
             MinHeight="150"
             HorizontalAlignment="Stretch"
             VerticalAlignment="Stretch"
-            Margin="7,32,7,7"
+            Margin="0,25,7,7"
             TextChanged="MainTextBox_TextChanged"
             VerticalScrollBarVisibility="Auto"
             HorizontalScrollBarVisibility="Disabled"

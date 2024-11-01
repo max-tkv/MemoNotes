@@ -22,8 +22,9 @@ public partial class TextBoxWindow
         Width = Properties.Settings.Default.WindowWidth;
         Height = Properties.Settings.Default.WindowHeight;
 
+        // Восстанавливаем значения закрепления окна ввода по вверх всех.
         Topmost = Properties.Settings.Default.TopmostTextBoxWindow;
-        ApplyForegroundPinnedButtonByTopmost();
+        RefreshForegroundPinnedButtonByTopmost();
         
         // Подписываемся на события
         InputTextBox.GotFocus += InputTextBox_GotFocus;
@@ -111,14 +112,20 @@ public partial class TextBoxWindow
         }
     }
 
+    /// <summary>
+    /// Событие закрепления окна ввода.
+    /// </summary>
     private void PinnedButton_Click(object sender, RoutedEventArgs e)
     {
         Topmost = !Topmost;
-        ApplyForegroundPinnedButtonByTopmost();
+        RefreshForegroundPinnedButtonByTopmost();
         Properties.Settings.Default.TopmostTextBoxWindow = Topmost;
     }
 
-    private void ApplyForegroundPinnedButtonByTopmost()
+    /// <summary>
+    /// Обновить цвет цвета кнопки относительно Topmost.
+    /// </summary>
+    private void RefreshForegroundPinnedButtonByTopmost()
     {
         PinnedButton.Foreground = Topmost 
             ? new SolidColorBrush(System.Windows.Media.Color.FromRgb(62, 62, 66)) 
