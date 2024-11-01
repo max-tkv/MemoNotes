@@ -10,8 +10,7 @@ namespace MemoNotes;
 
 public partial class TextBoxWindow
 {
-    private readonly string filePath = "Notes.txt";
-    private bool isPinned;
+    private const string FilePath = "Notes.txt";
 
     public TextBoxWindow()
     {
@@ -83,9 +82,9 @@ public partial class TextBoxWindow
     
     private void LoadTextFromFile()
     {
-        if (File.Exists(filePath))
+        if (File.Exists(FilePath))
         {
-            InputTextBox.Text = File.ReadAllText(filePath);
+            InputTextBox.Text = File.ReadAllText(FilePath);
         }
     }
     
@@ -96,7 +95,7 @@ public partial class TextBoxWindow
     
     private void SaveTextToFile(string text)
     {
-        File.WriteAllText(filePath, text);
+        File.WriteAllText(FilePath, text);
     }
     
     private void CloseButton_Click(object sender, RoutedEventArgs e)
