@@ -1,8 +1,11 @@
 ﻿using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Threading;
+using MemoNotes.Enums;
+using MemoNotes.Models;
+using MemoNotes.Service.CheckerMousePosition;
 using Application = System.Windows.Application;
-using Point = System.Windows.Point;
+using MousePosition = MemoNotes.Service.CheckerMousePosition.MousePosition;
 
 namespace MemoNotes;
 
@@ -15,11 +18,14 @@ public partial class MainWindow : Window
     private readonly double cornerMargin = 30; // Уменьшение порога в пикселях для правого верхнего угла
     private readonly DispatcherTimer checkMouseTimer;
     private PopupButtonWindow? popupButtonWindow;
+    private readonly MousePositionFactory _mousePositionFactory;
 
     public MainWindow()
     {
         InitializeComponent();
         InitializeNotifyIcon();
+        
+        _mousePositionFactory = new MousePositionFactory();
         
         // Скрываем главное окно
         Hide();
@@ -66,23 +72,23 @@ public partial class MainWindow : Window
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
         base.OnClosing(e);
-        e.Cancel = true; // Отменяем закрытие окна
-        Hide(); // Скрываем окно
+        e.Cancel = true;
+        Hide();
     }
 
     private void CheckMousePosition(object? sender, EventArgs e)
     {
-        var mousePosition = GetMousePosition();
-        var screenWidth = SystemParameters.PrimaryScreenWidth;
-        
-        if (mousePosition.X >= screenWidth - cornerMargin && mousePosition.Y <= cornerMargin)
+        System.Windows.Point mousePositionPoint = GetMousePosition();
+        MousePosition mousePosition = _mousePositionFactory.Create(Enums.MousePosition.UpperLeft);
+        if (mousePosition.CursorIsInCorrectPlace(mousePositionPoint))
         {
-            if (popupButtonWindow == null || !popupButtonWindow.IsVisible)
+            if (popupButtonWindow is not { IsVisible: true })
             {
+                PopupWindowPositionPoint popupWindowPositionPoint = mousePosition.GetPopupWindowPositionPoint();
                 popupButtonWindow = new PopupButtonWindow
                 {
-                    Left = mousePosition.X - 80, // Позиционируем окно на 80px левее от курсора
-                    Top = mousePosition.Y // Позиционируем окно по вертикали на уровне курсора
+                    Left = popupWindowPositionPoint.Left,
+                    Top = popupWindowPositionPoint.Top
                 };
                 popupButtonWindow.Show();
             }
@@ -96,18 +102,21 @@ public partial class MainWindow : Window
         }
     }
 
-    // Метод для получения позиции курсора
-    private static Point GetMousePosition()
+    /// <summary>
+    /// Метод для получения позиции курсора
+    /// </summary>
+    /// <returns>Координаты указателя.</returns>
+    private static System.Windows.Point GetMousePosition()
     {
-        GetCursorPos(out POINT lpPoint);
-        return new Point(lpPoint.X, lpPoint.Y);
+        GetCursorPos(out Point lpPoint);
+        return new System.Windows.Point(lpPoint.X, lpPoint.Y);
     }
 
     [DllImport("user32.dll")]
-    private static extern bool GetCursorPos(out POINT lpPoint);
+    private static extern bool GetCursorPos(out Point lpPoint);
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct POINT
+    private struct Point
     {
         public int X;
         public int Y;
