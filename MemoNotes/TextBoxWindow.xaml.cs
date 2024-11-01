@@ -11,7 +11,8 @@ namespace MemoNotes;
 public partial class TextBoxWindow
 {
     private readonly string filePath = "Notes.txt";
-    
+    private bool isPinned;
+
     public TextBoxWindow()
     {
         InitializeComponent();
@@ -21,6 +22,9 @@ public partial class TextBoxWindow
         // Восстанавливаем размеры окна при запуске
         Width = Properties.Settings.Default.WindowWidth;
         Height = Properties.Settings.Default.WindowHeight;
+
+        Topmost = Properties.Settings.Default.TopmostTextBoxWindow;
+        ApplyForegroundPinnedButtonByTopmost();
         
         // Подписываемся на события
         InputTextBox.GotFocus += InputTextBox_GotFocus;
@@ -106,5 +110,19 @@ public partial class TextBoxWindow
         {
             DragMove();
         }
+    }
+
+    private void PinnedButton_Click(object sender, RoutedEventArgs e)
+    {
+        Topmost = !Topmost;
+        ApplyForegroundPinnedButtonByTopmost();
+        Properties.Settings.Default.TopmostTextBoxWindow = Topmost;
+    }
+
+    private void ApplyForegroundPinnedButtonByTopmost()
+    {
+        PinnedButton.Foreground = Topmost 
+            ? new SolidColorBrush(System.Windows.Media.Color.FromRgb(62, 62, 66)) 
+            : new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 255, 255));
     }
 }

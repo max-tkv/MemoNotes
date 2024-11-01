@@ -6,7 +6,7 @@
         mc:Ignorable="d"
         Title="Memo Notes" Height="300" Width="500" MinWidth="500" MinHeight="300" 
         WindowStyle="None" AllowsTransparency="True" Background="#262626"
-        Topmost="True" ShowInTaskbar="False"
+        Topmost="True" ShowInTaskbar="True"
         WindowStartupLocation="CenterScreen"
         SizeChanged="Window_SizeChanged"
         Icon="logo.ico">
@@ -90,6 +90,47 @@
                 BorderThickness="1"
                 MouseDown="TitleBar_MouseDown">
             <Grid>
+                <Button x:Name="PinnedButton"
+                        Height="15"
+                        Width="15"
+                        Content="📌" 
+                        VerticalAlignment="Top" 
+                        HorizontalAlignment="Right" 
+                        Margin="0,5,30,0"
+                        ClickMode="Release"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        Foreground="White"
+                        IsEnabled="True"
+                        Click="PinnedButton_Click">
+                     <Button.Template>
+                             <ControlTemplate TargetType="Button">
+                                 <Border x:Name="border" 
+                                         Background="{TemplateBinding Background}" 
+                                         BorderBrush="{TemplateBinding BorderBrush}" 
+                                         Padding="0">
+                                     <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                 </Border>
+                                 <ControlTemplate.Triggers>
+                                     <Trigger Property="IsMouseOver" Value="True">
+                                         <Setter TargetName="border" Property="Background" Value="Transparent"/>
+                                     </Trigger>
+                                 </ControlTemplate.Triggers>
+                             </ControlTemplate>
+                         </Button.Template>
+                         <Button.Style>
+                             <Style TargetType="Button">
+                                 <Setter Property="Background" Value="Transparent"/>
+                                 <Setter Property="Foreground" Value="Transparent"/>
+                                 <Setter Property="BorderBrush" Value="Transparent"/>
+                                 <Style.Triggers>
+                                     <Trigger Property="IsMouseOver" Value="True">
+                                         <Setter Property="FontWeight" Value="Bold"/>
+                                     </Trigger>
+                                 </Style.Triggers>
+                             </Style>
+                         </Button.Style>
+                </Button>
                 <Button Height="20"
                         Width="20"
                         Content="✕" 

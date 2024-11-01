@@ -24,4 +24,12 @@ internal sealed class Settings : ApplicationSettingsBase
         get => (double)this["WindowHeight"];
         set => this["WindowHeight"] = value;
     }
+    
+    [UserScopedSetting]
+    [DefaultSettingValue("True")]
+    public bool TopmostTextBoxWindow
+    {
+        get => (bool)this["TopmostTextBoxWindow"];
+        set => this["TopmostTextBoxWindow"] = value;
+    }
 }
