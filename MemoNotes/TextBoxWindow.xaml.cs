@@ -1,5 +1,4 @@
-﻿using System;
-using System.IO;
+﻿using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -8,13 +7,12 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Documents;
 using System.Windows.Markup;
-using Color = System.Drawing.Color;
 
 namespace MemoNotes;
 
 public partial class TextBoxWindow
 {
-    private const string FilePath = "Notes.xaml";
+    private const string FilePath = "notes.memo";
     private System.Windows.Controls.Image selectedImage;
 
     public TextBoxWindow()
@@ -83,7 +81,7 @@ public partial class TextBoxWindow
 
     private void InputRichTextBox_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
-        if (e.Key == System.Windows.Input.Key.V && (System.Windows.Input.Keyboard.Modifiers & System.Windows.Input.ModifierKeys.Control) == System.Windows.Input.ModifierKeys.Control)
+        if (e.Key == Key.V && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
         {
             // Вставка изображения из буфера обмена
             if (System.Windows.Clipboard.ContainsImage())
@@ -92,16 +90,16 @@ public partial class TextBoxWindow
                 if (interopBitmap != null)
                 {
                     // Конвертируем InteropBitmap в BitmapImage для сериализации
-                    BitmapImage bitmapImage = new BitmapImage();
+                    var bitmapImage = new BitmapImage();
                     bitmapImage.BeginInit();
                     bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
                     bitmapImage.CreateOptions = BitmapCreateOptions.PreservePixelFormat;
                     var encoder = new PngBitmapEncoder();
                     encoder.Frames.Add(BitmapFrame.Create(interopBitmap));
-                    using (var memoryStream = new System.IO.MemoryStream())
+                    using (var memoryStream = new MemoryStream())
                     {
                         encoder.Save(memoryStream);
-                        memoryStream.Seek(0, System.IO.SeekOrigin.Begin);
+                        memoryStream.Seek(0, SeekOrigin.Begin);
                         bitmapImage.StreamSource = memoryStream;
                         bitmapImage.EndInit();
                         bitmapImage.Freeze();
@@ -113,7 +111,7 @@ public partial class TextBoxWindow
                         Source = bitmapImage,
                         Width = bitmapImage.PixelWidth,
                         Height = bitmapImage.PixelHeight,
-                        Stretch = System.Windows.Media.Stretch.None
+                        Stretch = Stretch.None
                     };
                     var container = new InlineUIContainer(imageControl);
                     InputRichTextBox.CaretPosition.Paragraph?.Inlines.Add(container);
@@ -134,52 +132,74 @@ public partial class TextBoxWindow
     
     private void LoadTextFromFile()
     {
-        if (File.Exists(FilePath))
+        if (!File.Exists(FilePath))
+            return;
+
+        try
         {
-            try
+            byte[] fileBytes = File.ReadAllBytes(FilePath);
+            if (fileBytes.Length == 0)
+                return;
+
+            string content = System.Text.Encoding.UTF8.GetString(fileBytes);
+            string trimmedStart = content.TrimStart();
+
+            if (trimmedStart.StartsWith("<FlowDocument", StringComparison.OrdinalIgnoreCase))
             {
-                using (FileStream stream = new FileStream(FilePath, FileMode.Open))
+                // XAML текстовый формат (старый формат, может не содержать данные изображений)
+                using (var ms = new MemoryStream(fileBytes))
                 {
-                    // Пытаемся загрузить как RTF
-                    TextRange range = new TextRange(InputRichTextBox.Document.ContentStart, InputRichTextBox.Document.ContentEnd);
-                    try
+                    var document = XamlReader.Load(ms) as FlowDocument;
+                    if (document != null)
                     {
-                        range.Load(stream, System.Windows.DataFormats.Rtf);
-                        ApplyImageSettings(InputRichTextBox.Document);
-                        return;
-                    }
-                    catch
-                    {
-                        // Если не RTF, пробуем загрузить как XAML
-                        stream.Seek(0, SeekOrigin.Begin);
-                        FlowDocument document = XamlReader.Load(stream) as FlowDocument;
-                        if (document != null)
-                        {
-                            InputRichTextBox.Document = document;
-                            ApplyImageSettings(document);
-                            return;
-                        }
-                        else
-                        {
-                            // Если не XAML, пробуем загрузить как текст
-                            stream.Seek(0, SeekOrigin.Begin);
-                            using (StreamReader reader = new StreamReader(stream))
-                            {
-                                string text = reader.ReadToEnd();
-                                InputRichTextBox.Document.Blocks.Clear();
-                                InputRichTextBox.Document.Blocks.Add(new Paragraph(new Run(text)));
-                            }
-                        }
+                        InputRichTextBox.Document = document;
+                        ApplyImageSettings(document);
                     }
                 }
             }
-            catch
+            else if (trimmedStart.StartsWith("{\\rtf", StringComparison.OrdinalIgnoreCase))
             {
-                // Если не удалось загрузить, пробуем загрузить как простой текст
+                // Формат RTF
+                using (var ms = new MemoryStream(fileBytes))
+                {
+                    var range = new TextRange(
+                        InputRichTextBox.Document.ContentStart,
+                        InputRichTextBox.Document.ContentEnd);
+                    range.Load(ms, System.Windows.DataFormats.Rtf);
+                    ApplyImageSettings(InputRichTextBox.Document);
+                }
+            }
+            else
+            {
+                // Пробуем XamlPackage (бинарный формат WPF, корректно сохраняет изображения)
+                try
+                {
+                    using (var ms = new MemoryStream(fileBytes))
+                    {
+                        var range = new TextRange(
+                            InputRichTextBox.Document.ContentStart,
+                            InputRichTextBox.Document.ContentEnd);
+                        range.Load(ms, System.Windows.DataFormats.XamlPackage);
+                        ApplyImageSettings(InputRichTextBox.Document);
+                    }
+                }
+                catch
+                {
+                    // Простой текст
+                    InputRichTextBox.Document.Blocks.Clear();
+                    InputRichTextBox.Document.Blocks.Add(new Paragraph(new Run(content)));
+                }
+            }
+        }
+        catch
+        {
+            try
+            {
                 string text = File.ReadAllText(FilePath);
                 InputRichTextBox.Document.Blocks.Clear();
                 InputRichTextBox.Document.Blocks.Add(new Paragraph(new Run(text)));
             }
+            catch { }
         }
     }
     
@@ -251,7 +271,6 @@ public partial class TextBoxWindow
                 }
             }
         }
-        // Другие типы блоков можно добавить при необходимости
     }
     
     
@@ -261,18 +280,17 @@ public partial class TextBoxWindow
         {
             using (FileStream stream = new FileStream(FilePath, FileMode.Create))
             {
-                // Сохраняем документ в формате XAML для сохранения всех свойств (включая размеры изображений)
-                string xaml = System.Windows.Markup.XamlWriter.Save(InputRichTextBox.Document);
-                using (StreamWriter writer = new StreamWriter(stream))
-                {
-                    writer.Write(xaml);
-                }
+                // Сохраняем в формате XamlPackage — бинарный формат WPF,
+                // который корректно сохраняет все свойства включая бинарные данные изображений
+                TextRange range = new TextRange(
+                    InputRichTextBox.Document.ContentStart,
+                    InputRichTextBox.Document.ContentEnd);
+                range.Save(stream, System.Windows.DataFormats.XamlPackage);
             }
         }
         catch (Exception ex)
         {
-            // Обработка ошибки сохранения
-            System.Windows.MessageBox.Show($"Ошибка сохранения: {ex.Message}", "Ошибка", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            System.Windows.MessageBox.Show($"Ошибка сохранения: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
     
@@ -312,7 +330,6 @@ public partial class TextBoxWindow
         ClearSelection();
         
         selectedImage = image;
-        // Ресайз отключен, адорнер не добавляется
     }
     
     private void ClearSelection()
