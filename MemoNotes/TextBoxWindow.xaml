@@ -74,6 +74,15 @@
             <Setter Property="AcceptsReturn" Value="True"/>
         </Style>
         
+        <Style x:Key="CustomRichTextBoxStyle" TargetType="RichTextBox">
+            <Setter Property="Background" Value="#262626"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="10"/>
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
+        </Style>
+        
     </Window.Resources>
     
     <WindowChrome.WindowChrome>
@@ -180,21 +189,21 @@
             </Grid>
         </Border>
         
-        <TextBox 
-            x:Name="InputTextBox" 
+        <RichTextBox 
+            x:Name="InputRichTextBox" 
             MinWidth="300" 
             MinHeight="150"
             HorizontalAlignment="Stretch"
             VerticalAlignment="Stretch"
             Margin="0,25,7,7"
-            TextChanged="MainTextBox_TextChanged"
             VerticalScrollBarVisibility="Auto"
             HorizontalScrollBarVisibility="Disabled"
-            Style="{StaticResource CustomTextBoxStyle}">
-            <TextBox.Resources>
+            Style="{StaticResource CustomRichTextBoxStyle}"
+            PreviewKeyDown="InputRichTextBox_PreviewKeyDown">
+            <RichTextBox.Resources>
                 <Style TargetType="ScrollBar" BasedOn="{StaticResource CustomScrollBar}" />
-            </TextBox.Resources>
-        </TextBox>
+            </RichTextBox.Resources>
+        </RichTextBox>
         
         <Label 
             x:Name="PlaceholderLabel" 
