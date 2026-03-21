@@ -99,6 +99,47 @@
                 BorderThickness="1"
                 MouseDown="TitleBar_MouseDown">
             <Grid>
+                <Button x:Name="SettingsButton"
+                        Height="15"
+                        Width="15"
+                        Content="⚙" 
+                        VerticalAlignment="Top" 
+                        HorizontalAlignment="Right" 
+                        Margin="0,5,50,0"
+                        ClickMode="Release"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        Foreground="White"
+                        IsEnabled="True"
+                        Click="SettingsButton_Click">
+                     <Button.Template>
+                             <ControlTemplate TargetType="Button">
+                                 <Border x:Name="border" 
+                                         Background="{TemplateBinding Background}" 
+                                         BorderBrush="{TemplateBinding BorderBrush}" 
+                                         Padding="0">
+                                     <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                 </Border>
+                                 <ControlTemplate.Triggers>
+                                     <Trigger Property="IsMouseOver" Value="True">
+                                         <Setter TargetName="border" Property="Background" Value="Transparent"/>
+                                     </Trigger>
+                                 </ControlTemplate.Triggers>
+                             </ControlTemplate>
+                         </Button.Template>
+                         <Button.Style>
+                             <Style TargetType="Button">
+                                 <Setter Property="Background" Value="Transparent"/>
+                                 <Setter Property="Foreground" Value="Transparent"/>
+                                 <Setter Property="BorderBrush" Value="Transparent"/>
+                                 <Style.Triggers>
+                                     <Trigger Property="IsMouseOver" Value="True">
+                                         <Setter Property="FontWeight" Value="Bold"/>
+                                     </Trigger>
+                                 </Style.Triggers>
+                             </Style>
+                         </Button.Style>
+                </Button>
                 <Button x:Name="PinnedButton"
                         Height="15"
                         Width="15"

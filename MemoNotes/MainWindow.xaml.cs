@@ -1,8 +1,10 @@
 ﻿using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Threading;
-using MemoNotes.Enums;
 using MemoNotes.Models;
+using MemoNotes.Properties;
 using MemoNotes.Service.CheckerMousePosition;
 using Application = System.Windows.Application;
 using MousePosition = MemoNotes.Service.CheckerMousePosition.MousePosition;
@@ -27,6 +29,9 @@ public partial class MainWindow : Window
         
         _mousePositionFactory = new MousePositionFactory();
         
+        // Загружаем сохранённый угол активации
+        LoadStartupCorner();
+
         // Скрываем главное окно
         Hide();
 
@@ -37,6 +42,25 @@ public partial class MainWindow : Window
         };
         checkMouseTimer.Tick += CheckMousePosition;
         checkMouseTimer.Start();
+    }
+
+    /// <summary>
+    /// Обработчик перетаскивания окна за заголовок.
+    /// </summary>
+    private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton == MouseButton.Left)
+        {
+            DragMove();
+        }
+    }
+
+    /// <summary>
+    /// Обработчик кнопки закрытия окна.
+    /// </summary>
+    private void CloseButton_Click(object sender, RoutedEventArgs e)
+    {
+        Hide();
     }
 
     private void InitializeNotifyIcon()
@@ -58,6 +82,7 @@ public partial class MainWindow : Window
 
     private void ShowMainWindow(object sender, EventArgs e)
     {
+        Topmost = true;
         Show();
         WindowState = WindowState.Normal;
         Activate();
@@ -65,6 +90,7 @@ public partial class MainWindow : Window
 
     private void ExitApplication(object sender, EventArgs e)
     {
+        Settings.Default.Save();
         notifyIcon.Dispose(); // Удаляем иконку из трея
         Application.Current.Shutdown(); // Закрываем приложение
     }
@@ -72,14 +98,38 @@ public partial class MainWindow : Window
     protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
     {
         base.OnClosing(e);
+        Settings.Default.Save();
         e.Cancel = true;
         Hide();
+    }
+
+    /// <summary>
+    /// Загружает сохранённый угол активации из настроек.
+    /// </summary>
+    private void LoadStartupCorner()
+    {
+        int savedCorner = Settings.Default.StartupCorner;
+        CornerComboBox.SelectedIndex = savedCorner - 1; // Enum начинается с 1
+        CornerComboBox.SelectionChanged += CornerComboBox_SelectionChanged;
+    }
+
+    /// <summary>
+    /// Обработчик изменения выбранного угла в ComboBox.
+    /// </summary>
+    private void CornerComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (CornerComboBox.SelectedItem is ComboBoxItem { Tag: Enums.MousePosition corner })
+        {
+            Settings.Default.StartupCorner = (int)corner;
+            Settings.Default.Save();
+        }
     }
 
     private void CheckMousePosition(object? sender, EventArgs e)
     {
         System.Windows.Point mousePositionPoint = GetMousePosition();
-        MousePosition mousePosition = _mousePositionFactory.Create(Enums.MousePosition.UpperLeft);
+        Enums.MousePosition selectedCorner = (Enums.MousePosition)Settings.Default.StartupCorner;
+        MousePosition mousePosition = _mousePositionFactory.Create(selectedCorner);
         if (mousePosition.CursorIsInCorrectPlace(mousePositionPoint))
         {
             if (popupButtonWindow is not { IsVisible: true })
