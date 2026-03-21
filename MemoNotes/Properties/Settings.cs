@@ -32,4 +32,12 @@ internal sealed class Settings : ApplicationSettingsBase
         get => (bool)this["TopmostTextBoxWindow"];
         set => this["TopmostTextBoxWindow"] = value;
     }
+
+    [UserScopedSetting]
+    [DefaultSettingValue("1")]
+    public int StartupCorner
+    {
+        get => (int)this["StartupCorner"];
+        set => this["StartupCorner"] = value;
+    }
 }

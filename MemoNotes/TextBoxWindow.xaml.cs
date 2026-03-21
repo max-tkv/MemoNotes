@@ -351,6 +351,20 @@ public partial class TextBoxWindow
     }
 
     /// <summary>
+    /// Открытие окна настроек.
+    /// </summary>
+    private void SettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        var mainWindow = System.Windows.Application.Current.MainWindow;
+        if (mainWindow is MainWindow settingsWindow)
+        {
+            settingsWindow.Topmost = true;
+        }
+        mainWindow?.Show();
+        mainWindow?.Activate();
+    }
+
+    /// <summary>
     /// Событие закрепления окна ввода.
     /// </summary>
     private void PinnedButton_Click(object sender, RoutedEventArgs e)
