@@ -73,7 +73,7 @@ public partial class MainWindow : Window
         };
         
         var contextMenu = new ContextMenuStrip();
-        contextMenu.Items.Add("Открыть", null, ShowMainWindow);
+        contextMenu.Items.Add("Настройки", null, ShowMainWindow);
         contextMenu.Items.Add("Закрыть", null, ExitApplication);
         notifyIcon.ContextMenuStrip = contextMenu;
         
