@@ -58,4 +58,4 @@
 
 ## Лицензия
 
-MemoNotes выпущен под лицензией [MIT](LICENSE).
+MemoNotes выпущен под лицензией [Apache-2.0](LICENSE).
