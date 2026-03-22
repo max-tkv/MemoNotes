@@ -59,6 +59,17 @@ public partial class BoardWindow : Window
     private System.Windows.Shapes.Rectangle? _selectionRectangle;
     private readonly HashSet<Guid> _selectedItemIds = new();
 
+    // Режим рисования кистью
+    private bool _isDrawingMode;
+    private bool _isDrawing;
+    private System.Windows.Shapes.Path? _currentStrokePath;
+    private System.Windows.Media.PathGeometry? _currentStrokeGeometry;
+    private System.Windows.Media.PathFigure? _currentStrokeFigure;
+    private readonly List<double> _currentStrokePoints = new();
+    private Point _strokeMinPoint;
+    private Point _strokeMaxPoint;
+    private readonly Dictionary<Guid, (List<double> OriginalPoints, double OrigWidth, double OrigHeight, System.Windows.Shapes.Path Path)> _strokeOriginalData = new();
+
     private readonly List<BoardItem> _boardItems = new();
     private readonly Dictionary<Guid, FrameworkElement> _elementMap = new();
 
@@ -163,6 +174,9 @@ public partial class BoardWindow : Window
             }
         }
 
+        // Обновляем толщину всех штрихов
+        UpdateStrokeThicknesses();
+
         e.Handled = true;
     }
 
@@ -172,6 +186,7 @@ public partial class BoardWindow : Window
         BoardScaleTransform.ScaleX = 1.0;
         BoardScaleTransform.ScaleY = 1.0;
         ZoomText.Text = "100%";
+        UpdateStrokeThicknesses();
     }
 
     #endregion
@@ -202,6 +217,21 @@ public partial class BoardWindow : Window
             DeselectImageBorder();
             StartPan(e);
             e.Handled = true;
+        }
+        // Режим рисования кистью — рисуем только по пустому пространству
+        else if (_isDrawingMode && e.ChangedButton == MouseButton.Left && e.ButtonState == MouseButtonState.Pressed)
+        {
+            // Если клик по элементу доски (Border, TextBox, Image) — не рисуем
+            if (e.OriginalSource is Border or System.Windows.Controls.TextBox or System.Windows.Controls.Image)
+            {
+                // Выходим из режима рисования и даём событию обработаться стандартно
+                ToggleDrawingMode();
+            }
+            else
+            {
+                StartDrawingStroke(e);
+                e.Handled = true;
+            }
         }
         // Клик по пустому пространству — начать выделение рамкой
         else if (e.ChangedButton == MouseButton.Left && e.ButtonState == MouseButtonState.Pressed)
@@ -481,6 +511,13 @@ public partial class BoardWindow : Window
             return;
         }
 
+        // Рисование кистью
+        if (_isDrawing && e.LeftButton == MouseButtonState.Pressed)
+        {
+            ContinueDrawingStroke(e);
+            return;
+        }
+
         // Resize элементов
         if (_isResizing && e.LeftButton == MouseButtonState.Pressed)
         {
@@ -535,6 +572,12 @@ public partial class BoardWindow : Window
     protected override void OnMouseUp(MouseButtonEventArgs e)
     {
         base.OnMouseUp(e);
+
+        // Завершаем рисование кистью
+        if (_isDrawing && e.ChangedButton == MouseButton.Left)
+        {
+            EndDrawingStroke();
+        }
 
         // Завершаем resize
         if (_isResizing && e.ChangedButton == MouseButton.Left)
@@ -786,6 +829,9 @@ public partial class BoardWindow : Window
             case ImageBoardItem imageItem:
                 CreateImageElementForCommand(imageItem, null);
                 break;
+            case StrokeBoardItem strokeItem:
+                CreateStrokeElement(strokeItem);
+                break;
         }
     }
 
@@ -809,6 +855,7 @@ public partial class BoardWindow : Window
         }
 
         _selectedItemIds.Remove(id);
+        _strokeOriginalData.Remove(id);
         SaveBoard();
     }
 
@@ -853,6 +900,13 @@ public partial class BoardWindow : Window
             {
                 border.Width = bounds.Width;
                 border.Height = bounds.Height;
+
+                // Для штрихов — пересчитываем координаты точек Path
+                if (_strokeOriginalData.TryGetValue(id, out var strokeInfo))
+                {
+                    var (origPoints, origW, origH, path) = strokeInfo;
+                    UpdateStrokePathGeometry(path, origPoints, origW, origH, bounds.Width, bounds.Height);
+                }
             }
             else if (element is System.Windows.Controls.TextBox textBox)
             {
@@ -1362,6 +1416,9 @@ public partial class BoardWindow : Window
                     case ImageBoardItem imageItem:
                         RestoreImageItem(imageItem);
                         break;
+                    case StrokeBoardItem strokeItem:
+                        RestoreStrokeItem(strokeItem);
+                        break;
                 }
             }
 
@@ -1395,6 +1452,18 @@ public partial class BoardWindow : Window
         catch (Exception ex)
         {
             Debug.WriteLine($"Ошибка восстановления изображения: {ex.Message}");
+        }
+    }
+
+    private void RestoreStrokeItem(StrokeBoardItem item)
+    {
+        try
+        {
+            CreateStrokeElement(item);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Ошибка восстановления штриха: {ex.Message}");
         }
     }
 
@@ -1594,6 +1663,16 @@ public partial class BoardWindow : Window
             }
         }
 
+        // B — переключить режим кисти
+        if (e.Key == Key.B && !Keyboard.IsKeyDown(Key.LeftCtrl) && !Keyboard.IsKeyDown(Key.RightCtrl))
+        {
+            if (Keyboard.FocusedElement is not System.Windows.Controls.TextBox)
+            {
+                ToggleDrawingMode();
+                e.Handled = true;
+            }
+        }
+
         // Delete — удалить выделенные элементы
         if (e.Key == Key.Delete)
         {
@@ -1629,11 +1708,353 @@ public partial class BoardWindow : Window
             }
         }
 
-        // Escape — снять фокус с элемента
+        // Escape — снять фокус с элемента / выйти из режима рисования
         if (e.Key == Key.Escape)
         {
+            if (_isDrawingMode)
+            {
+                ToggleDrawingMode();
+            }
             Keyboard.Focus(this);
         }
+    }
+
+    #endregion
+
+    #region Рисование кистью
+
+    private void BrushButton_Click(object sender, RoutedEventArgs e)
+    {
+        ToggleDrawingMode();
+    }
+
+    private void ToggleDrawingMode()
+    {
+        _isDrawingMode = !_isDrawingMode;
+
+        if (_isDrawingMode)
+        {
+            BrushButton.Style = (Style)FindResource("ToolbarButtonActiveStyle");
+            BoardCanvas.Cursor = System.Windows.Input.Cursors.Cross;
+            ClearSelection();
+        }
+        else
+        {
+            BrushButton.Style = (Style)FindResource("ToolbarButtonStyle");
+            BoardCanvas.Cursor = System.Windows.Input.Cursors.Arrow;
+        }
+    }
+
+    private void StartDrawingStroke(MouseButtonEventArgs e)
+    {
+        var pos = e.GetPosition(BoardCanvas);
+
+        _isDrawing = true;
+        _currentStrokePoints.Clear();
+        _currentStrokePoints.Add(pos.X);
+        _currentStrokePoints.Add(pos.Y);
+
+        _strokeMinPoint = pos;
+        _strokeMaxPoint = pos;
+
+        _currentStrokeFigure = new System.Windows.Media.PathFigure
+        {
+            StartPoint = pos,
+            IsClosed = false
+        };
+
+        _currentStrokeGeometry = new System.Windows.Media.PathGeometry();
+        _currentStrokeGeometry.Figures.Add(_currentStrokeFigure);
+
+        _currentStrokePath = new System.Windows.Shapes.Path
+        {
+            Stroke = new SolidColorBrush(Color.FromArgb(255, 255, 255, 255)),
+            StrokeThickness = 3 / _currentZoom,
+            StrokeStartLineCap = System.Windows.Media.PenLineCap.Round,
+            StrokeEndLineCap = System.Windows.Media.PenLineCap.Round,
+            StrokeLineJoin = System.Windows.Media.PenLineJoin.Round,
+            Data = _currentStrokeGeometry,
+            IsHitTestVisible = false
+        };
+
+        BoardCanvas.Children.Add(_currentStrokePath);
+        BoardCanvas.CaptureMouse();
+    }
+
+    private void ContinueDrawingStroke(MouseEventArgs e)
+    {
+        if (_currentStrokePath == null || _currentStrokeFigure == null) return;
+
+        var pos = e.GetPosition(BoardCanvas);
+
+        _currentStrokePoints.Add(pos.X);
+        _currentStrokePoints.Add(pos.Y);
+
+        // Обновляем границы
+        _strokeMinPoint.X = Math.Min(_strokeMinPoint.X, pos.X);
+        _strokeMinPoint.Y = Math.Min(_strokeMinPoint.Y, pos.Y);
+        _strokeMaxPoint.X = Math.Max(_strokeMaxPoint.X, pos.X);
+        _strokeMaxPoint.Y = Math.Max(_strokeMaxPoint.Y, pos.Y);
+
+        // Добавляем отрезок линии
+        var segment = new System.Windows.Media.LineSegment(pos, true) { IsStroked = true };
+        _currentStrokeFigure.Segments.Add(segment);
+    }
+
+    private void EndDrawingStroke()
+    {
+        if (_currentStrokePath == null) return;
+
+        _isDrawing = false;
+        BoardCanvas.ReleaseMouseCapture();
+
+        // Удаляем временный Path с доски
+        BoardCanvas.Children.Remove(_currentStrokePath);
+
+        // Если было слишком мало точек — не создаём элемент (одиночный клик)
+        if (_currentStrokePoints.Count < 4)
+        {
+            _currentStrokePath = null;
+            _currentStrokeGeometry = null;
+            _currentStrokeFigure = null;
+            return;
+        }
+
+        var padding = 10.0; // Отступ внутри Border для удобного выделения
+        var strokeThickness = 3.0;
+
+        // Вычисляем bounding box
+        var minX = _strokeMinPoint.X - padding;
+        var minY = _strokeMinPoint.Y - padding;
+        var maxX = _strokeMaxPoint.X + padding;
+        var maxY = _strokeMaxPoint.Y + padding;
+        var width = Math.Max(maxX - minX, 10);
+        var height = Math.Max(maxY - minY, 10);
+
+        // Переводим точки в локальные координаты (относительно minX/minY)
+        var localPoints = new List<double>();
+        for (int i = 0; i < _currentStrokePoints.Count; i += 2)
+        {
+            localPoints.Add(_currentStrokePoints[i] - minX);
+            localPoints.Add(_currentStrokePoints[i + 1] - minY);
+        }
+
+        // Создаём модель штриха
+        var strokeItem = new StrokeBoardItem
+        {
+            X = minX,
+            Y = minY,
+            Width = width,
+            Height = height,
+            OriginalWidth = width,
+            OriginalHeight = height,
+            Points = localPoints,
+            ColorHex = "#FFFFFFFF",
+            StrokeThickness = strokeThickness
+        };
+
+        // Добавляем команду undo (Execute() создаст элемент на доске)
+        _undoManager.ExecuteCommand(new AddItemCommand(
+            strokeItem,
+            addItem: i => CreateStrokeElement((StrokeBoardItem)i),
+            removeItem: RemoveElementById
+        ));
+
+        _currentStrokePath = null;
+        _currentStrokeGeometry = null;
+        _currentStrokeFigure = null;
+    }
+
+    /// <summary>Создать UI-элемент (Border+Path) для штриха и добавить на доску.</summary>
+    private void CreateStrokeElement(StrokeBoardItem item)
+    {
+        var border = BuildStrokeBorder(item);
+
+        Canvas.SetLeft(border, item.X);
+        Canvas.SetTop(border, item.Y);
+
+        // Если размеры были изменены (например после загрузки) — пересчитываем геометрию
+        if (_strokeOriginalData.TryGetValue(item.Id, out var data))
+        {
+            var (origPoints, origW, origH, path) = data;
+            if (origW > 0 && origH > 0 && (Math.Abs(origW - item.Width) > 0.1 || Math.Abs(origH - item.Height) > 0.1))
+            {
+                UpdateStrokePathGeometry(path, origPoints, origW, origH, item.Width, item.Height);
+            }
+        }
+
+        BoardCanvas.Children.Add(border);
+        _boardItems.Add(item);
+        _elementMap[item.Id] = border;
+
+        SaveBoard();
+    }
+
+    /// <summary>Построить Border с Path внутри по модели StrokeBoardItem.</summary>
+    private Border BuildStrokeBorder(StrokeBoardItem item)
+    {
+        // Path с локальными координатами
+        var path = BuildStrokePath(item);
+
+        // Обёртка Border (как у изображений)
+        var border = new Border
+        {
+            Background = System.Windows.Media.Brushes.Transparent,
+            BorderBrush = new SolidColorBrush(Color.FromRgb(62, 62, 66)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(2),
+            Width = item.Width,
+            Height = item.Height,
+            Tag = item.Id,
+            Cursor = System.Windows.Input.Cursors.SizeAll
+        };
+
+        border.Child = path;
+
+        // Обработка клика и перетаскивания (как у изображений)
+        border.MouseLeftButtonDown += StrokeElement_MouseLeftButtonDown;
+        border.MouseRightButtonDown += StrokeElement_MouseRightButtonDown;
+
+        // Сохраняем оригинальные размеры и Path для пересчёта при ресайзе
+        var origW = item.OriginalWidth > 0 ? item.OriginalWidth : item.Width;
+        var origH = item.OriginalHeight > 0 ? item.OriginalHeight : item.Height;
+        _strokeOriginalData[item.Id] = (item.Points.ToList(), origW, origH, path);
+
+        // Обновляем толщину линии при изменении зума
+        _zoomChangedHandlers.Add((_, newZoom) =>
+        {
+            path.StrokeThickness = item.StrokeThickness / newZoom;
+        });
+
+        return border;
+    }
+
+    private void StrokeElement_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not Border border) return;
+        e.Handled = true;
+
+        // Деактивируем редактирование текстовых полей и убираем фокус
+        DeactivateAllTextBoxesAndClearFocus();
+
+        // Если кликнутый элемент уже в выделении — перетаскиваем всю группу
+        var clickedInSelection = border.Tag is Guid clickedId && _selectedItemIds.Contains(clickedId);
+        if (!clickedInSelection)
+        {
+            // Снимаем подсветку со всех элементов и очищаем выделение
+            _selectedItemIds.Clear();
+            foreach (var kvp in _elementMap)
+            {
+                HighlightElement(kvp.Value, false);
+            }
+            // Выделяем только кликнутый штрих
+            if (border.Tag is Guid id)
+            {
+                _selectedItemIds.Add(id);
+                ShowResizeHandles(id);
+            }
+        }
+
+        BringToFront(border);
+        SelectImageBorder(border);
+        StartDrag(border, e);
+    }
+
+    private void StrokeElement_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement element || element.Tag is not Guid id) return;
+
+        var contextMenu = new ContextMenu();
+
+        var deleteItem = new MenuItem
+        {
+            Header = "🗑 Удалить",
+            FontWeight = FontWeights.Normal
+        };
+        deleteItem.Click += (_, _) => DeleteBoardItem(id);
+        contextMenu.Items.Add(deleteItem);
+
+        element.ContextMenu = contextMenu;
+    }
+
+    /// <summary>Построить WPF Path по модели StrokeBoardItem (локальные координаты).</summary>
+    private System.Windows.Shapes.Path BuildStrokePath(StrokeBoardItem item)
+    {
+        var figure = new System.Windows.Media.PathFigure();
+        var segments = new System.Windows.Media.PathSegmentCollection();
+
+        if (item.Points.Count >= 2)
+        {
+            figure.StartPoint = new Point(item.Points[0], item.Points[1]);
+
+            for (int i = 2; i < item.Points.Count - 1; i += 2)
+            {
+                segments.Add(new System.Windows.Media.LineSegment(
+                    new Point(item.Points[i], item.Points[i + 1]), true));
+            }
+        }
+
+        figure.Segments = segments;
+        figure.IsClosed = false;
+
+        var geometry = new System.Windows.Media.PathGeometry();
+        geometry.Figures.Add(figure);
+
+        var path = new System.Windows.Shapes.Path
+        {
+            Stroke = new SolidColorBrush((Color)System.Windows.Media.ColorConverter.ConvertFromString(item.ColorHex)),
+            StrokeThickness = item.StrokeThickness / _currentZoom,
+            StrokeStartLineCap = System.Windows.Media.PenLineCap.Round,
+            StrokeEndLineCap = System.Windows.Media.PenLineCap.Round,
+            StrokeLineJoin = System.Windows.Media.PenLineJoin.Round,
+            Data = geometry,
+            IsHitTestVisible = false
+        };
+
+        return path;
+    }
+
+    private readonly List<Action<double, double>> _zoomChangedHandlers = new();
+
+    /// <summary>Обновить толщину всех штрихов при изменении зума.</summary>
+    private void UpdateStrokeThicknesses()
+    {
+        foreach (var handler in _zoomChangedHandlers)
+        {
+            handler(0, _currentZoom);
+        }
+    }
+
+    /// <summary>Пересчитать координаты точек Path при изменении размера Border-а.</summary>
+    private void UpdateStrokePathGeometry(System.Windows.Shapes.Path path, List<double> origPoints,
+        double origWidth, double origHeight, double newWidth, double newHeight)
+    {
+        if (origWidth <= 0 || origHeight <= 0 || newWidth <= 0 || newHeight <= 0) return;
+
+        var scaleX = newWidth / origWidth;
+        var scaleY = newHeight / origHeight;
+
+        var figure = new System.Windows.Media.PathFigure();
+        var segments = new System.Windows.Media.PathSegmentCollection();
+
+        if (origPoints.Count >= 2)
+        {
+            figure.StartPoint = new Point(origPoints[0] * scaleX, origPoints[1] * scaleY);
+
+            for (int i = 2; i < origPoints.Count - 1; i += 2)
+            {
+                segments.Add(new System.Windows.Media.LineSegment(
+                    new Point(origPoints[i] * scaleX, origPoints[i + 1] * scaleY), true));
+            }
+        }
+
+        figure.Segments = segments;
+        figure.IsClosed = false;
+
+        var geometry = new System.Windows.Media.PathGeometry();
+        geometry.Figures.Add(figure);
+
+        path.Data = geometry;
     }
 
     #endregion
@@ -1849,8 +2270,9 @@ public partial class BoardWindow : Window
         var newWidth = _resizeInitialBounds.Width;
         var newHeight = _resizeInitialBounds.Height;
 
-        // Для изображений сохраняем пропорции (aspect ratio)
+        // Для изображений и штрихов сохраняем пропорции (aspect ratio)
         bool isImage = item is ImageBoardItem;
+        bool isStroke = item is StrokeBoardItem;
         double aspectRatio = _resizeInitialBounds.Width / Math.Max(_resizeInitialBounds.Height, 0.001);
 
         switch (_activeResizeHandle)
@@ -1864,7 +2286,7 @@ public partial class BoardWindow : Window
             case ResizeHandlePosition.TopCenter:
                 newY = _resizeInitialBounds.Y + deltaY;
                 newHeight = _resizeInitialBounds.Height - deltaY;
-                if (isImage)
+                if (isImage || isStroke)
                 {
                     newWidth = newHeight * aspectRatio;
                     newX = _resizeInitialBounds.X + (_resizeInitialBounds.Width - newWidth) / 2;
@@ -1878,7 +2300,7 @@ public partial class BoardWindow : Window
             case ResizeHandlePosition.MiddleLeft:
                 newX = _resizeInitialBounds.X + deltaX;
                 newWidth = _resizeInitialBounds.Width - deltaX;
-                if (isImage)
+                if (isImage || isStroke)
                 {
                     newHeight = newWidth / aspectRatio;
                     newY = _resizeInitialBounds.Y + (_resizeInitialBounds.Height - newHeight) / 2;
@@ -1886,7 +2308,7 @@ public partial class BoardWindow : Window
                 break;
             case ResizeHandlePosition.MiddleRight:
                 newWidth = _resizeInitialBounds.Width + deltaX;
-                if (isImage)
+                if (isImage || isStroke)
                 {
                     newHeight = newWidth / aspectRatio;
                     newY = _resizeInitialBounds.Y + (_resizeInitialBounds.Height - newHeight) / 2;
@@ -1899,7 +2321,7 @@ public partial class BoardWindow : Window
                 break;
             case ResizeHandlePosition.BottomCenter:
                 newHeight = _resizeInitialBounds.Height + deltaY;
-                if (isImage)
+                if (isImage || isStroke)
                 {
                     newWidth = newHeight * aspectRatio;
                     newX = _resizeInitialBounds.X + (_resizeInitialBounds.Width - newWidth) / 2;
@@ -1911,8 +2333,8 @@ public partial class BoardWindow : Window
                 break;
         }
 
-        // Для угловых ручек изображений: определяем dominant axis по наибольшему смещению
-        if (isImage && (_activeResizeHandle == ResizeHandlePosition.TopLeft
+        // Для угловых ручек изображений и штрихов: определяем dominant axis по наибольшему смещению
+        if ((isImage || isStroke) && (_activeResizeHandle == ResizeHandlePosition.TopLeft
             || _activeResizeHandle == ResizeHandlePosition.TopRight
             || _activeResizeHandle == ResizeHandlePosition.BottomLeft
             || _activeResizeHandle == ResizeHandlePosition.BottomRight))
@@ -1938,7 +2360,7 @@ public partial class BoardWindow : Window
             if (_activeResizeHandle == ResizeHandlePosition.TopLeft || _activeResizeHandle == ResizeHandlePosition.MiddleLeft || _activeResizeHandle == ResizeHandlePosition.BottomLeft)
                 newX = _resizeInitialBounds.Right - minSize;
             newWidth = minSize;
-            if (isImage)
+                if (isImage || isStroke)
                 newHeight = minSize / aspectRatio;
         }
 
@@ -1947,7 +2369,7 @@ public partial class BoardWindow : Window
             if (_activeResizeHandle == ResizeHandlePosition.TopLeft || _activeResizeHandle == ResizeHandlePosition.TopCenter || _activeResizeHandle == ResizeHandlePosition.TopRight)
                 newY = _resizeInitialBounds.Bottom - minSize;
             newHeight = minSize;
-            if (isImage)
+                if (isImage || isStroke)
                 newWidth = minSize * aspectRatio;
         }
 
@@ -1967,6 +2389,12 @@ public partial class BoardWindow : Window
                 border.Width = newWidth;
                 border.Height = newHeight;
                 // Изображение внутри Border растягивается автоматически (Stretch=UniformToFill)
+                // Для штрихов — пересчитываем координаты точек Path в реальном времени
+                if (_strokeOriginalData.TryGetValue(item.Id, out var strokeInfo))
+                {
+                    var (origPoints, origW, origH, path) = strokeInfo;
+                    UpdateStrokePathGeometry(path, origPoints, origW, origH, newWidth, newHeight);
+                }
             }
             else if (element is System.Windows.Controls.TextBox textBox)
             {

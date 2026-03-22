@@ -9,6 +9,7 @@ namespace MemoNotes.Models;
 [JsonPolymorphic]
 [JsonDerivedType(typeof(TextBoardItem), "text")]
 [JsonDerivedType(typeof(ImageBoardItem), "image")]
+[JsonDerivedType(typeof(StrokeBoardItem), "stroke")]
 public class BoardItem
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -52,8 +53,46 @@ public class ImageBoardItem : BoardItem
     public string? OriginalName { get; set; }
 }
 
+/// <summary>
+/// Нарисованный штрих (кисть) на доске.
+/// </summary>
+public class StrokeBoardItem : BoardItem
+{
+    public StrokeBoardItem()
+    {
+        ItemType = BoardItemType.Stroke;
+    }
+
+    /// <summary>
+    /// Список точек штриха в локальных координатах (относительно верхнего левого угла).
+    /// Хранится как плоский массив: [x0, y0, x1, y1, ...].
+    /// </summary>
+    public List<double> Points { get; set; } = new();
+
+    /// <summary>
+    /// Оригинальная ширина штриха (до ресайза). Используется для пересчёта координат.
+    /// </summary>
+    public double OriginalWidth { get; set; }
+
+    /// <summary>
+    /// Оригинальная высота штриха (до ресайза). Используется для пересчёта координат.
+    /// </summary>
+    public double OriginalHeight { get; set; }
+
+    /// <summary>
+    /// Цвет обводки в формате ARGB (например, "#FF0088CC").
+    /// </summary>
+    public string ColorHex { get; set; } = "#FFFFFFFF";
+
+    /// <summary>
+    /// Толщина линии.
+    /// </summary>
+    public double StrokeThickness { get; set; } = 3;
+}
+
 public enum BoardItemType
 {
     Text,
-    Image
+    Image,
+    Stroke
 }
