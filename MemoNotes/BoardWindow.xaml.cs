@@ -82,6 +82,16 @@ public partial class BoardWindow : Window
 
         BoardCanvas.Width = 4000;
         BoardCanvas.Height = 4000;
+
+        // Если нет сохранённой позиции — скроллим в центр доски
+        if (!File.Exists(BoardDataFilePath))
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                BoardScrollViewer.ScrollToHorizontalOffset((BoardCanvas.Width * _currentZoom - BoardScrollViewer.ViewportWidth) / 2);
+                BoardScrollViewer.ScrollToVerticalOffset((BoardCanvas.Height * _currentZoom - BoardScrollViewer.ViewportHeight) / 2);
+            }, System.Windows.Threading.DispatcherPriority.Loaded);
+        }
     }
 
     #endregion
