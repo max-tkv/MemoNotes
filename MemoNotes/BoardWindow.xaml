@@ -189,6 +189,12 @@
                             ToolTip="Закрепить поверх всех окон"
                             Click="PinnedButton_Click"/>
 
+                    <Button Content="⊕"
+                            x:Name="MaximizeButton"
+                            Style="{StaticResource ToolbarButtonStyle}"
+                            ToolTip="Развернуть во весь экран"
+                            Click="MaximizeButton_Click"/>
+                    
                     <Button Content="✕"
                             Style="{StaticResource CloseButtonStyle}"
                             ToolTip="Закрыть"

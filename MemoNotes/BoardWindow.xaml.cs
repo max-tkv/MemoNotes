@@ -1229,6 +1229,37 @@ public partial class BoardWindow : Window
         }
     }
 
+    private Rect _normalBounds;
+    private bool _isMaximized;
+
+    private void MaximizeButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isMaximized)
+        {
+            // Восстанавливаем обычный размер
+            Left = _normalBounds.X;
+            Top = _normalBounds.Y;
+            Width = _normalBounds.Width;
+            Height = _normalBounds.Height;
+            MaximizeButton.Content = "⊕";
+            MaximizeButton.ToolTip = "Развернуть во весь экран";
+            _isMaximized = false;
+        }
+        else
+        {
+            // Сохраняем текущие размеры
+            _normalBounds = new Rect(Left, Top, Width, Height);
+            // Разворачиваем на весь экран
+            Left = 0;
+            Top = 0;
+            Width = SystemParameters.PrimaryScreenWidth;
+            Height = SystemParameters.PrimaryScreenHeight;
+            MaximizeButton.Content = "⊖";
+            MaximizeButton.ToolTip = "Восстановить размер";
+            _isMaximized = true;
+        }
+    }
+
     private void CloseButton_Click(object sender, RoutedEventArgs e)
     {
         SaveBoard();
