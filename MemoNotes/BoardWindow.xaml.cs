@@ -162,7 +162,10 @@ public partial class BoardWindow : Window
         // Клик по пустому пространству — снять выделение
         else if (e.ChangedButton == MouseButton.Left && e.ButtonState == MouseButtonState.Pressed)
         {
-            if (e.OriginalSource is FrameworkElement fe && fe == BoardCanvas)
+            // Проверяем что клик не на элементах доски (TextBox, Image, Border)
+            if (e.OriginalSource is not System.Windows.Controls.TextBox
+                && e.OriginalSource is not System.Windows.Controls.Image
+                && e.OriginalSource is not Border)
             {
                 DeselectImageBorder();
             }
@@ -278,10 +281,13 @@ public partial class BoardWindow : Window
             Width = 200,
             Height = 100,
             Tag = Guid.Empty,
-            FontSize = 16
+            FontSize = 16,
+            IsReadOnly = true,
+            IsReadOnlyCaretVisible = false,
+            Cursor = System.Windows.Input.Cursors.SizeAll
         };
 
-        textBox.MouseLeftButtonDown += TextElement_MouseLeftButtonDown;
+        textBox.PreviewMouseLeftButtonDown += TextElement_PreviewMouseLeftButtonDown;
 
         Canvas.SetLeft(textBox, x);
         Canvas.SetTop(textBox, y);
@@ -318,17 +324,47 @@ public partial class BoardWindow : Window
             }
         };
 
-        textBox.Focus();
-        Keyboard.Focus(textBox);
+        textBox.LostFocus += (s, args) =>
+        {
+            if (s is System.Windows.Controls.TextBox tb)
+            {
+                tb.IsReadOnly = true;
+                tb.IsReadOnlyCaretVisible = false;
+                tb.Cursor = System.Windows.Input.Cursors.SizeAll;
+            }
+        };
 
         SaveBoard();
     }
 
-    private void TextElement_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private void TextElement_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (sender is not System.Windows.Controls.TextBox textBox) return;
-        if (textBox.IsKeyboardFocusWithin) return;
 
+        // Двойной клик — режим редактирования
+        if (e.ClickCount == 2)
+        {
+            // Отменяем перетаскивание если было
+            if (_draggedElement == textBox)
+            {
+                _draggedElement.ReleaseMouseCapture();
+                _draggedElement = null;
+            }
+
+            // Включаем режим редактирования
+            textBox.IsReadOnly = false;
+            textBox.IsReadOnlyCaretVisible = true;
+            textBox.Cursor = System.Windows.Input.Cursors.IBeam;
+            textBox.Focus();
+            Keyboard.Focus(textBox);
+            e.Handled = true;
+            return;
+        }
+
+        // Если уже в режиме редактирования — не перехватываем одиночный клик
+        if (!textBox.IsReadOnly) return;
+
+        // Одиночный клик — перетаскивание
         e.Handled = true;
         StartDrag(textBox, e);
     }
@@ -637,10 +673,13 @@ public partial class BoardWindow : Window
             Width = item.Width,
             Height = item.Height,
             Tag = item.Id,
-            FontSize = item.FontSize
+            FontSize = item.FontSize,
+            IsReadOnly = true,
+            IsReadOnlyCaretVisible = false,
+            Cursor = System.Windows.Input.Cursors.SizeAll
         };
 
-        textBox.MouseLeftButtonDown += TextElement_MouseLeftButtonDown;
+        textBox.PreviewMouseLeftButtonDown += TextElement_PreviewMouseLeftButtonDown;
         textBox.TextChanged += (s, args) =>
         {
             if (s is System.Windows.Controls.TextBox tb && tb.Tag is Guid id)
@@ -650,6 +689,15 @@ public partial class BoardWindow : Window
                 {
                     model.Text = tb.Text;
                 }
+            }
+        };
+        textBox.LostFocus += (s, args) =>
+        {
+            if (s is System.Windows.Controls.TextBox tb)
+            {
+                tb.IsReadOnly = true;
+                tb.IsReadOnlyCaretVisible = false;
+                tb.Cursor = System.Windows.Input.Cursors.SizeAll;
             }
         };
 
