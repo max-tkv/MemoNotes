@@ -29,8 +29,6 @@ public partial class BoardWindow : Window
     private const double MinZoom = 0.1;
     private const double MaxZoom = 5.0;
     private const double ZoomStep = 0.1;
-    private const double DotSpacing = 30;
-    private const double DotRadius = 1.5;
 
     private double _currentZoom = 1.0;
     private bool _isPanning;
@@ -79,13 +77,15 @@ public partial class BoardWindow : Window
         Topmost = Properties.Settings.Default.TopmostTextBoxWindow;
         RefreshPinnedButtonState();
 
-        DrawDotGrid();
         LoadBoard();
 
         PreviewKeyDown += BoardWindow_PreviewKeyDown;
 
         BoardCanvas.Width = 4000;
         BoardCanvas.Height = 4000;
+
+        BoardScrollViewer.SizeChanged += (s, e) => UpdateCanvasSize();
+        UpdateCanvasSize();
 
         // Если нет сохранённой позиции — скроллим в центр доски
         if (!File.Exists(BoardDataFilePath))
@@ -100,27 +100,16 @@ public partial class BoardWindow : Window
 
     #endregion
 
-    #region Сетка-фон
+    #region Динамический размер Canvas
 
-    private void DrawDotGrid()
+    private void UpdateCanvasSize()
     {
-        var canvasWidth = 4000;
-        var canvasHeight = 4000;
-
-        for (double x = 0; x < canvasWidth; x += DotSpacing)
+        if (BoardScrollViewer.ViewportWidth > 0 && BoardScrollViewer.ViewportHeight > 0 && _currentZoom > 0)
         {
-            for (double y = 0; y < canvasHeight; y += DotSpacing)
-            {
-                var dot = new Ellipse
-                {
-                    Width = DotRadius * 2,
-                    Height = DotRadius * 2,
-                    Fill = new SolidColorBrush(Color.FromArgb(40, 255, 255, 255))
-                };
-                Canvas.SetLeft(dot, x - DotRadius);
-                Canvas.SetTop(dot, y - DotRadius);
-                BoardCanvas.Children.Insert(0, dot);
-            }
+            var minWidth = BoardScrollViewer.ViewportWidth / _currentZoom;
+            var minHeight = BoardScrollViewer.ViewportHeight / _currentZoom;
+            BoardCanvas.Width = Math.Max(4000, minWidth);
+            BoardCanvas.Height = Math.Max(4000, minHeight);
         }
     }
 
