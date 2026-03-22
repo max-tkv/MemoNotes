@@ -1351,6 +1351,19 @@ public partial class BoardWindow : Window
     {
         if (e.ChangedButton == MouseButton.Left)
         {
+            // Не начинаем перетаскивание, если кликнули по кнопке тулбара
+            if (e.OriginalSource is FrameworkElement fe && fe is not TextBlock)
+            {
+                // Поднимаемся по визуальному дереву — если родитель кнопка, не DragMove
+                var parent = fe;
+                while (parent != null)
+                {
+                    if (parent is System.Windows.Controls.Button)
+                        return;
+                    parent = VisualTreeHelper.GetParent(parent) as FrameworkElement;
+                }
+            }
+
             DragMove();
         }
     }
