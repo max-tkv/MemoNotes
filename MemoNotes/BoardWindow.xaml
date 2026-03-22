@@ -41,6 +41,37 @@
             </Setter>
         </Style>
 
+        <!-- Стиль для активной кнопки тулбара (кисть и т.д.) -->
+        <Style x:Key="ToolbarButtonActiveStyle" TargetType="Button">
+            <Setter Property="Background" Value="#3e3e42"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#007ACC"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4"
+                                Padding="2">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#4e4e52"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Стиль для кнопки закрытия -->
         <Style x:Key="CloseButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
@@ -173,6 +204,13 @@
                             Style="{StaticResource ToolbarButtonStyle}"
                             ToolTip="Вставить изображение (Ctrl+V)"
                             Click="AddImageButton_Click"/>
+
+                    <!-- Кисть -->
+                    <Button x:Name="BrushButton"
+                            Content="✏"
+                            Style="{StaticResource ToolbarButtonStyle}"
+                            ToolTip="Кисть (B)"
+                            Click="BrushButton_Click"/>
 
                     <!-- Удалить выбранное -->
                     <Button Content="🗑"
