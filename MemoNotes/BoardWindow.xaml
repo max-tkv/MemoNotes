@@ -217,6 +217,10 @@
                     <Canvas x:Name="BoardCanvas"
                             Background="#1e1e1e"
                             Focusable="True"
+                            AllowDrop="True"
+                            DragEnter="BoardCanvas_DragEnter"
+                            DragOver="BoardCanvas_DragOver"
+                            Drop="BoardCanvas_Drop"
                             MouseWheel="BoardCanvas_MouseWheel"
                             MouseDown="BoardCanvas_MouseDown"
                             MouseRightButtonUp="BoardCanvas_MouseRightButtonUp">

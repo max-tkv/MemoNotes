@@ -11,6 +11,9 @@ using MemoNotes.Models;
 using Application = System.Windows.Application;
 using Clipboard = System.Windows.Clipboard;
 using Color = System.Windows.Media.Color;
+using DataFormats = System.Windows.DataFormats;
+using DragDropEffects = System.Windows.DragDropEffects;
+using DragEventArgs = System.Windows.DragEventArgs;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 using MouseEventArgs = System.Windows.Input.MouseEventArgs;
 using Point = System.Windows.Point;
@@ -206,6 +209,85 @@ public partial class BoardWindow : Window
         StopPan();
         e.Handled = true;
     }
+
+    #region Drag & Drop изображений
+
+    private void BoardCanvas_DragEnter(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent(DataFormats.FileDrop))
+        {
+            var files = (string[])e.Data.GetData(DataFormats.FileDrop);
+            if (files != null && files.Any(f => IsImageFile(f)))
+            {
+                e.Effects = DragDropEffects.Copy;
+                return;
+            }
+        }
+        e.Effects = DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void BoardCanvas_DragOver(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent(DataFormats.FileDrop))
+        {
+            var files = (string[])e.Data.GetData(DataFormats.FileDrop);
+            if (files != null && files.Any(f => IsImageFile(f)))
+            {
+                e.Effects = DragDropEffects.Copy;
+                return;
+            }
+        }
+        e.Effects = DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void BoardCanvas_Drop(object sender, DragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return;
+
+        var files = (string[])e.Data.GetData(DataFormats.FileDrop);
+        if (files == null) return;
+
+        // Получаем позицию дропа на Canvas
+        var dropPos = e.GetPosition(BoardCanvas);
+
+        foreach (var file in files)
+        {
+            if (!IsImageFile(file)) continue;
+
+            try
+            {
+                var bitmapImage = new BitmapImage();
+                bitmapImage.BeginInit();
+                bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+                bitmapImage.UriSource = new Uri(file, UriKind.Absolute);
+                bitmapImage.EndInit();
+                bitmapImage.Freeze();
+
+                var fileBytes = File.ReadAllBytes(file);
+                var base64 = Convert.ToBase64String(fileBytes);
+
+                AddImageElement(bitmapImage, base64, bitmapImage.PixelWidth, bitmapImage.PixelHeight,
+                    dropPos.X - bitmapImage.PixelWidth / 2,
+                    dropPos.Y - bitmapImage.PixelHeight / 2);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Ошибка загрузки изображения (drag & drop): {ex.Message}");
+            }
+        }
+
+        e.Handled = true;
+    }
+
+    private static bool IsImageFile(string path)
+    {
+        var ext = System.IO.Path.GetExtension(path).ToLowerInvariant();
+        return ext is ".png" or ".jpg" or ".jpeg" or ".bmp" or ".gif" or ".tiff" or ".webp" or ".ico";
+    }
+
+    #endregion
 
     #region Множественное выделение (rubber band)
 
