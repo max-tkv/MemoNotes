@@ -137,26 +137,42 @@ public partial class BoardWindow : Window
     {
         if (e.MiddleButton == MouseButtonState.Pressed)
         {
-            _isPanning = true;
-            _panStartPoint = e.GetPosition(BoardScrollViewer);
-            _scrollStartOffset = new Point(
-                BoardScrollViewer.HorizontalOffset,
-                BoardScrollViewer.VerticalOffset);
-            BoardCanvas.CaptureMouse();
+            StartPan(e);
             e.Handled = true;
         }
         else if (e.ChangedButton == MouseButton.Left && e.ButtonState == MouseButtonState.Pressed)
         {
             if (e.OriginalSource is FrameworkElement fe && fe == BoardCanvas)
             {
-                _isPanning = true;
-                _panStartPoint = e.GetPosition(BoardScrollViewer);
-                _scrollStartOffset = new Point(
-                    BoardScrollViewer.HorizontalOffset,
-                    BoardScrollViewer.VerticalOffset);
-                BoardCanvas.CaptureMouse();
+                StartPan(e);
                 e.Handled = true;
             }
+        }
+        else if (e.ChangedButton == MouseButton.Right && e.ButtonState == MouseButtonState.Pressed
+                 && Keyboard.IsKeyDown(Key.LeftCtrl))
+        {
+            StartPan(e);
+            e.Handled = true;
+        }
+    }
+
+    private void StartPan(MouseButtonEventArgs e)
+    {
+        _isPanning = true;
+        _panStartPoint = e.GetPosition(BoardScrollViewer);
+        _scrollStartOffset = new Point(
+            BoardScrollViewer.HorizontalOffset,
+            BoardScrollViewer.VerticalOffset);
+        BoardCanvas.CaptureMouse();
+    }
+
+    private void BoardCanvas_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_isPanning)
+        {
+            _isPanning = false;
+            BoardCanvas.ReleaseMouseCapture();
+            e.Handled = true;
         }
     }
 
@@ -164,7 +180,7 @@ public partial class BoardWindow : Window
     {
         base.OnMouseMove(e);
 
-        if (_isPanning && e.MiddleButton == MouseButtonState.Pressed)
+        if (_isPanning)
         {
             var currentPoint = e.GetPosition(BoardScrollViewer);
             var delta = currentPoint - _panStartPoint;
@@ -201,7 +217,9 @@ public partial class BoardWindow : Window
     {
         base.OnMouseUp(e);
 
-        if (_isPanning)
+        if (_isPanning && (e.ChangedButton == MouseButton.Middle
+                          || e.ChangedButton == MouseButton.Left
+                          || e.ChangedButton == MouseButton.Right))
         {
             _isPanning = false;
             BoardCanvas.ReleaseMouseCapture();
