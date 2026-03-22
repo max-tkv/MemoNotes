@@ -25,7 +25,9 @@ public partial class BoardWindow : Window
 {
     #region Поля
 
-    private const string BoardDataFilePath = "board.memo";
+    private static readonly string AppDataDir = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MemoNotes");
+    private static readonly string BoardDataFilePath = Path.Combine(AppDataDir, "board.memo");
     private const double MinZoom = 0.1;
     private const double MaxZoom = 5.0;
     private const double ZoomStep = 0.1;
@@ -76,6 +78,14 @@ public partial class BoardWindow : Window
         Height = Properties.Settings.Default.BoardHeight;
         Topmost = Properties.Settings.Default.TopmostTextBoxWindow;
         RefreshPinnedButtonState();
+
+        // Миграция данных в AppData: создаём директорию и переносим старый файл если есть
+        Directory.CreateDirectory(AppDataDir);
+        var legacyPath = "board.memo";
+        if (!File.Exists(BoardDataFilePath) && File.Exists(legacyPath))
+        {
+            try { File.Move(legacyPath, BoardDataFilePath); } catch { /* игнорируем */ }
+        }
 
         LoadBoard();
 
@@ -631,6 +641,15 @@ public partial class BoardWindow : Window
                         tb.Width = double.NaN;
                         tb.Height = double.NaN;
                     }
+
+                    // Обновляем ресайз-ручки по фактическим размерам после layout pass
+                    Dispatcher.BeginInvoke(() =>
+                    {
+                        if (_resizeItemId == id && !double.IsNaN(tb.ActualWidth) && !double.IsNaN(tb.ActualHeight))
+                        {
+                            UpdateResizeHandlesPosition(tb, id);
+                        }
+                    }, System.Windows.Threading.DispatcherPriority.Loaded);
                 }
             }
         };
@@ -642,6 +661,21 @@ public partial class BoardWindow : Window
                 tb.IsReadOnly = true;
                 tb.IsReadOnlyCaretVisible = false;
                 tb.Cursor = System.Windows.Input.Cursors.SizeAll;
+
+                // Фиксируем актуальные размеры в модель после автоподгонки
+                if (tb.Tag is Guid id)
+                {
+                    var model = _boardItems.FirstOrDefault(i => i.Id == id) as TextBoardItem;
+                    if (model != null && !double.IsNaN(tb.ActualWidth) && !double.IsNaN(tb.ActualHeight))
+                    {
+                        tb.Width = tb.ActualWidth;
+                        tb.Height = tb.ActualHeight;
+                        if (_resizeItemId == id)
+                        {
+                            UpdateResizeHandlesPosition(tb, id);
+                        }
+                    }
+                }
 
                 // При потере фокуса — фиксируем команду изменения текста
                 if (tb.Tag is Guid textId && _editingTextBeforeChange != null)
@@ -1068,6 +1102,14 @@ public partial class BoardWindow : Window
     {
         if (sender is not Border border) return;
         e.Handled = true;
+
+        // Если это двойной клик — открываем изображение в приложении по умолчанию
+        if (e.ClickCount == 2)
+        {
+            OpenImageInDefaultApp(border);
+            return;
+        }
+
         // Деактивируем редактирование текстовых полей и убираем фокус
         DeactivateAllTextBoxesAndClearFocus();
 
@@ -1092,6 +1134,38 @@ public partial class BoardWindow : Window
         BringToFront(border);
         SelectImageBorder(border);
         StartDrag(border, e);
+    }
+
+    private void OpenImageInDefaultApp(Border border)
+    {
+        if (border.Tag is not Guid imageId) return;
+
+        var imageItem = _boardItems.FirstOrDefault(i => i.Id == imageId) as ImageBoardItem;
+        if (imageItem == null || string.IsNullOrEmpty(imageItem.ImageDataBase64)) return;
+
+        try
+        {
+            var bytes = Convert.FromBase64String(imageItem.ImageDataBase64);
+            var tempDir = Path.Combine(Path.GetTempPath(), "MemoNotes");
+            Directory.CreateDirectory(tempDir);
+
+            var fileName = string.IsNullOrEmpty(imageItem.OriginalName)
+                ? $"image_{imageId:N}.png"
+                : imageItem.OriginalName;
+
+            var tempPath = Path.Combine(tempDir, fileName);
+            File.WriteAllBytes(tempPath, bytes);
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = tempPath,
+                UseShellExecute = true
+            });
+        }
+        catch
+        {
+            // Игнорируем ошибки при открытии
+        }
     }
 
     private void SelectImageBorder(Border border)
@@ -1351,6 +1425,19 @@ public partial class BoardWindow : Window
     {
         if (e.ChangedButton == MouseButton.Left)
         {
+            // Не начинаем перетаскивание, если кликнули по кнопке тулбара
+            if (e.OriginalSource is FrameworkElement fe && fe is not TextBlock)
+            {
+                // Поднимаемся по визуальному дереву — если родитель кнопка, не DragMove
+                var parent = fe;
+                while (parent != null)
+                {
+                    if (parent is System.Windows.Controls.Button)
+                        return;
+                    parent = VisualTreeHelper.GetParent(parent) as FrameworkElement;
+                }
+            }
+
             DragMove();
         }
     }
@@ -1613,13 +1700,21 @@ public partial class BoardWindow : Window
 
     private void UpdateResizeHandlesPosition(BoardItem item)
     {
+        // Если есть UI-элемент — используем его фактические размеры и позицию
+        if (_elementMap.TryGetValue(item.Id, out var element) && element != null)
+        {
+            UpdateResizeHandlesPosition(element, item.Id);
+            return;
+        }
+
         var visualHandleSize = HandleSize / _currentZoom;
+        var elementWidth = item.Width;
+        var elementHeight = item.Height;
 
         foreach (var handle in _resizeHandles)
         {
             if (handle.Tag is not ResizeHandlePosition pos) continue;
 
-            // Обновляем визуальный размер при каждом позиционировании (на случай изменения зума)
             handle.Width = visualHandleSize;
             handle.Height = visualHandleSize;
             handle.StrokeThickness = 1 / _currentZoom;
@@ -1629,8 +1724,8 @@ public partial class BoardWindow : Window
                 ResizeHandlePosition.TopLeft or ResizeHandlePosition.MiddleLeft or ResizeHandlePosition.BottomLeft
                     => item.X - visualHandleSize / 2,
                 ResizeHandlePosition.TopCenter or ResizeHandlePosition.BottomCenter
-                    => item.X + item.Width / 2 - visualHandleSize / 2,
-                _ => item.X + item.Width - visualHandleSize / 2
+                    => item.X + elementWidth / 2 - visualHandleSize / 2,
+                _ => item.X + elementWidth - visualHandleSize / 2
             };
 
             var y = pos switch
@@ -1638,8 +1733,58 @@ public partial class BoardWindow : Window
                 ResizeHandlePosition.TopLeft or ResizeHandlePosition.TopCenter or ResizeHandlePosition.TopRight
                     => item.Y - visualHandleSize / 2,
                 ResizeHandlePosition.MiddleLeft or ResizeHandlePosition.MiddleRight
-                    => item.Y + item.Height / 2 - visualHandleSize / 2,
-                _ => item.Y + item.Height - visualHandleSize / 2
+                    => item.Y + elementHeight / 2 - visualHandleSize / 2,
+                _ => item.Y + elementHeight - visualHandleSize / 2
+            };
+
+            Canvas.SetLeft(handle, x);
+            Canvas.SetTop(handle, y);
+        }
+    }
+
+    /// <summary>Обновить позиции ресайз-ручек на основе фактического размера UI-элемента.</summary>
+    private void UpdateResizeHandlesPosition(FrameworkElement element, Guid id)
+    {
+        var visualHandleSize = HandleSize / _currentZoom;
+        var elementX = Canvas.GetLeft(element);
+        var elementY = Canvas.GetTop(element);
+        var elementWidth = element.ActualWidth;
+        var elementHeight = element.ActualHeight;
+
+        // Обновляем размеры в модели
+        var model = _boardItems.FirstOrDefault(i => i.Id == id);
+        if (model != null)
+        {
+            model.X = elementX;
+            model.Y = elementY;
+            model.Width = elementWidth;
+            model.Height = elementHeight;
+        }
+
+        foreach (var handle in _resizeHandles)
+        {
+            if (handle.Tag is not ResizeHandlePosition pos) continue;
+
+            handle.Width = visualHandleSize;
+            handle.Height = visualHandleSize;
+            handle.StrokeThickness = 1 / _currentZoom;
+
+            var x = pos switch
+            {
+                ResizeHandlePosition.TopLeft or ResizeHandlePosition.MiddleLeft or ResizeHandlePosition.BottomLeft
+                    => elementX - visualHandleSize / 2,
+                ResizeHandlePosition.TopCenter or ResizeHandlePosition.BottomCenter
+                    => elementX + elementWidth / 2 - visualHandleSize / 2,
+                _ => elementX + elementWidth - visualHandleSize / 2
+            };
+
+            var y = pos switch
+            {
+                ResizeHandlePosition.TopLeft or ResizeHandlePosition.TopCenter or ResizeHandlePosition.TopRight
+                    => elementY - visualHandleSize / 2,
+                ResizeHandlePosition.MiddleLeft or ResizeHandlePosition.MiddleRight
+                    => elementY + elementHeight / 2 - visualHandleSize / 2,
+                _ => elementY + elementHeight - visualHandleSize / 2
             };
 
             Canvas.SetLeft(handle, x);
@@ -1826,9 +1971,32 @@ public partial class BoardWindow : Window
             else if (element is System.Windows.Controls.TextBox textBox)
             {
                 textBox.Width = newWidth;
-                textBox.Height = newHeight;
+                // Для текстовых полей автоматически подгоняем высоту под текст при заданной ширине
+                textBox.Height = double.NaN;
+                textBox.Measure(new System.Windows.Size(newWidth, double.PositiveInfinity));
+                var desiredHeight = textBox.DesiredSize.Height;
+                if (desiredHeight > newHeight || double.IsNaN(newHeight))
+                {
+                    // Если высота увеличилась — фиксируем нижний край (сдвигаем Y вверх)
+                    if (_activeResizeHandle == ResizeHandlePosition.TopLeft
+                        || _activeResizeHandle == ResizeHandlePosition.TopCenter
+                        || _activeResizeHandle == ResizeHandlePosition.TopRight)
+                    {
+                        newY = item.Y + item.Height - desiredHeight;
+                        Canvas.SetTop(textBox, newY);
+                        item.Y = newY;
+                    }
+                    newHeight = desiredHeight;
+                }
+                else
+                {
+                    textBox.Height = newHeight;
+                }
             }
         }
+
+        // Обновляем высоту в модели после авторазмера текста
+        item.Height = newHeight;
 
         UpdateResizeHandlesPosition(item);
     }
