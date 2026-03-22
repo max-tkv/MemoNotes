@@ -36,6 +36,7 @@ public partial class BoardWindow : Window
     private FrameworkElement? _draggedElement;
     private Point _dragStartPoint;
     private Point _elementStartPos;
+    private Border? _selectedImageBorder;
 
     private readonly List<BoardItem> _boardItems = new();
     private readonly Dictionary<Guid, FrameworkElement> _elementMap = new();
@@ -135,24 +136,36 @@ public partial class BoardWindow : Window
 
     private void BoardCanvas_MouseDown(object sender, MouseButtonEventArgs e)
     {
+        var isCtrlPressed = Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl);
+
+        // Панорамирование средней кнопкой мыши
         if (e.MiddleButton == MouseButtonState.Pressed)
         {
+            DeselectImageBorder();
             StartPan(e);
             e.Handled = true;
         }
+        // Панорамирование Ctrl + Правая кнопка мыши
+        else if (e.ChangedButton == MouseButton.Right && e.ButtonState == MouseButtonState.Pressed && isCtrlPressed)
+        {
+            DeselectImageBorder();
+            StartPan(e);
+            e.Handled = true;
+        }
+        // Панорамирование Ctrl + Левая кнопка мыши
+        else if (e.ChangedButton == MouseButton.Left && e.ButtonState == MouseButtonState.Pressed && isCtrlPressed)
+        {
+            DeselectImageBorder();
+            StartPan(e);
+            e.Handled = true;
+        }
+        // Клик по пустому пространству — снять выделение
         else if (e.ChangedButton == MouseButton.Left && e.ButtonState == MouseButtonState.Pressed)
         {
             if (e.OriginalSource is FrameworkElement fe && fe == BoardCanvas)
             {
-                StartPan(e);
-                e.Handled = true;
+                DeselectImageBorder();
             }
-        }
-        else if (e.ChangedButton == MouseButton.Right && e.ButtonState == MouseButtonState.Pressed
-                 && Keyboard.IsKeyDown(Key.LeftCtrl))
-        {
-            StartPan(e);
-            e.Handled = true;
         }
     }
 
@@ -166,14 +179,19 @@ public partial class BoardWindow : Window
         BoardCanvas.CaptureMouse();
     }
 
-    private void BoardCanvas_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    private void StopPan()
     {
         if (_isPanning)
         {
             _isPanning = false;
             BoardCanvas.ReleaseMouseCapture();
-            e.Handled = true;
         }
+    }
+
+    private void BoardCanvas_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        StopPan();
+        e.Handled = true;
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
@@ -187,6 +205,7 @@ public partial class BoardWindow : Window
 
             BoardScrollViewer.ScrollToHorizontalOffset(_scrollStartOffset.X - delta.X);
             BoardScrollViewer.ScrollToVerticalOffset(_scrollStartOffset.Y - delta.Y);
+            return;
         }
 
         if (_draggedElement != null && e.LeftButton == MouseButtonState.Pressed)
@@ -217,18 +236,20 @@ public partial class BoardWindow : Window
     {
         base.OnMouseUp(e);
 
+        // Останавливаем перетаскивание элемента при отпускании ЛКМ
+        if (_draggedElement != null && e.ChangedButton == MouseButton.Left)
+        {
+            _draggedElement.ReleaseMouseCapture();
+            _draggedElement = null;
+            SaveBoard();
+        }
+
+        // Останавливаем панорамирование при отпускании любой кнопки
         if (_isPanning && (e.ChangedButton == MouseButton.Middle
                           || e.ChangedButton == MouseButton.Left
                           || e.ChangedButton == MouseButton.Right))
         {
-            _isPanning = false;
-            BoardCanvas.ReleaseMouseCapture();
-        }
-
-        if (_draggedElement != null)
-        {
-            SaveBoard();
-            _draggedElement = null;
+            StopPan();
         }
     }
 
@@ -318,7 +339,39 @@ public partial class BoardWindow : Window
 
     private void AddImageButton_Click(object sender, RoutedEventArgs e)
     {
-        AddImageFromClipboard();
+        AddImageFromFile();
+    }
+
+    private void AddImageFromFile(double x = 0, double y = 0)
+    {
+        var openFileDialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Filter = "Изображения|*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.tiff;*.webp|Все файлы|*.*",
+            Title = "Выберите изображение"
+        };
+
+        if (openFileDialog.ShowDialog() == true)
+        {
+            try
+            {
+                var bitmapImage = new BitmapImage();
+                bitmapImage.BeginInit();
+                bitmapImage.CacheOption = BitmapCacheOption.OnLoad;
+                bitmapImage.UriSource = new Uri(openFileDialog.FileName, UriKind.Absolute);
+                bitmapImage.EndInit();
+                bitmapImage.Freeze();
+
+                // Получаем base64 из файла
+                var fileBytes = File.ReadAllBytes(openFileDialog.FileName);
+                var base64 = Convert.ToBase64String(fileBytes);
+
+                AddImageElement(bitmapImage, base64, bitmapImage.PixelWidth, bitmapImage.PixelHeight, x, y);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Ошибка загрузки изображения: {ex.Message}");
+            }
+        }
     }
 
     private void AddImageFromClipboard(double x = 0, double y = 0)
@@ -427,7 +480,29 @@ public partial class BoardWindow : Window
     {
         if (sender is not Border border) return;
         e.Handled = true;
+        SelectImageBorder(border);
         StartDrag(border, e);
+    }
+
+    private void SelectImageBorder(Border border)
+    {
+        // Снимаем подсветку с предыдущего
+        DeselectImageBorder();
+
+        // Подсвечиваем новый
+        _selectedImageBorder = border;
+        border.BorderBrush = new SolidColorBrush(Color.FromRgb(0, 120, 212));
+        border.BorderThickness = new Thickness(2);
+    }
+
+    private void DeselectImageBorder()
+    {
+        if (_selectedImageBorder != null)
+        {
+            _selectedImageBorder.BorderBrush = new SolidColorBrush(Color.FromRgb(62, 62, 66));
+            _selectedImageBorder.BorderThickness = new Thickness(1);
+            _selectedImageBorder = null;
+        }
     }
 
     private void ImageElement_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
