@@ -52,24 +52,24 @@ public partial class PopupButtonWindow
 
     private void OpenTextBoxWindow()
     {
-        TextBoxWindow? textBoxWindow = Application.Current.Windows
-            .OfType<TextBoxWindow>()
+        BoardWindow? boardWindow = Application.Current.Windows
+            .OfType<BoardWindow>()
             .FirstOrDefault();
         
-        if (textBoxWindow == null)
+        if (boardWindow == null)
         {
-            var newTextBoxWindow = new TextBoxWindow
+            var newBoardWindow = new BoardWindow
             {
                 Owner = this
             };
 
-            newTextBoxWindow.Show();
+            newBoardWindow.Show();
         }
         else
         {
-            CenterWindowOnScreen(textBoxWindow);
-            textBoxWindow.Activate();
-            textBoxWindow.BlinkBorder();
+            CenterWindowOnScreen(boardWindow);
+            boardWindow.Activate();
+            boardWindow.BlinkBorder();
         }
     }
     

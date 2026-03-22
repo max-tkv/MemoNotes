@@ -10,19 +10,19 @@ internal sealed class Settings : ApplicationSettingsBase
     public static Settings Default => defaultInstance;
 
     [UserScopedSetting]
-    [DefaultSettingValue("800")]
-    public double WindowWidth
+    [DefaultSettingValue("1000")]
+    public double BoardWindowWidth
     {
-        get => (double)this["WindowWidth"];
-        set => this["WindowWidth"] = value;
+        get => (double)this["BoardWindowWidth"];
+        set => this["BoardWindowWidth"] = value;
     }
 
     [UserScopedSetting]
-    [DefaultSettingValue("600")]
-    public double WindowHeight
+    [DefaultSettingValue("700")]
+    public double BoardHeight
     {
-        get => (double)this["WindowHeight"];
-        set => this["WindowHeight"] = value;
+        get => (double)this["BoardHeight"];
+        set => this["BoardHeight"] = value;
     }
     
     [UserScopedSetting]
