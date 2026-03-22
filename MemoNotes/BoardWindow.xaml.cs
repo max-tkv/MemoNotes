@@ -6,8 +6,8 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 using MemoNotes.Models;
+using MemoNotes.Undo;
 using Application = System.Windows.Application;
 using Clipboard = System.Windows.Clipboard;
 using Color = System.Windows.Media.Color;
@@ -61,6 +61,10 @@ public partial class BoardWindow : Window
 
     private readonly List<BoardItem> _boardItems = new();
     private readonly Dictionary<Guid, FrameworkElement> _elementMap = new();
+
+    // Undo/Redo
+    private readonly UndoManager _undoManager = new();
+    private string? _editingTextBeforeChange;
 
     #endregion
 
@@ -553,9 +557,30 @@ public partial class BoardWindow : Window
         // Останавливаем перетаскивание элемента при отпускании ЛКМ
         if (_draggedElement != null && e.ChangedButton == MouseButton.Left)
         {
+            // Формируем команду перемещения (только если были реальные сдвиги)
+            var movements = new Dictionary<Guid, (Point OldPos, Point NewPos)>();
+            foreach (var kvp in _dragStartPositions)
+            {
+                var item = _boardItems.FirstOrDefault(i => i.Id == kvp.Key);
+                if (item != null)
+                {
+                    var newPos = new Point(item.X, item.Y);
+                    if (Math.Abs(kvp.Value.X - newPos.X) > 0.5 || Math.Abs(kvp.Value.Y - newPos.Y) > 0.5)
+                    {
+                        movements[kvp.Key] = (kvp.Value, newPos);
+                    }
+                }
+            }
+
             _draggedElement.ReleaseMouseCapture();
             _draggedElement = null;
             _dragStartPositions.Clear();
+
+            if (movements.Count > 0)
+            {
+                _undoManager.ExecuteCommand(new MoveItemsCommand(movements, SetItemPosition));
+            }
+
             SaveBoard();
 
             // Обновляем resize handles после перетаскивания
@@ -577,30 +602,19 @@ public partial class BoardWindow : Window
 
     #endregion
 
-    #region Добавление текстового блока
+    #region Undo/Redo вспомогательные методы
 
-    private void AddTextButton_Click(object sender, RoutedEventArgs e)
+    /// <summary>Создать UI-элемент для текстового блока и добавить на доску.</summary>
+    private void CreateTextElement(TextBoardItem item)
     {
-        AddTextBlock();
-    }
-
-    private void AddTextBlock(string? text = null, double x = 0, double y = 0)
-    {
-        if (x == 0 && y == 0)
-        {
-            var center = GetVisibleCenter();
-            x = center.X;
-            y = center.Y;
-        }
-
         var textBox = new System.Windows.Controls.TextBox
         {
             Style = (Style)FindResource("BoardTextStyle"),
-            Text = text ?? string.Empty,
-            Width = 200,
-            Height = 100,
-            Tag = Guid.Empty,
-            FontSize = 16,
+            Text = item.Text,
+            Width = item.Width,
+            Height = item.Height,
+            Tag = item.Id,
+            FontSize = item.FontSize,
             IsReadOnly = true,
             IsReadOnlyCaretVisible = false,
             Cursor = System.Windows.Input.Cursors.SizeAll
@@ -608,21 +622,10 @@ public partial class BoardWindow : Window
 
         textBox.PreviewMouseLeftButtonDown += TextElement_PreviewMouseLeftButtonDown;
 
-        Canvas.SetLeft(textBox, x);
-        Canvas.SetTop(textBox, y);
+        Canvas.SetLeft(textBox, item.X);
+        Canvas.SetTop(textBox, item.Y);
         BoardCanvas.Children.Add(textBox);
 
-        var item = new TextBoardItem
-        {
-            X = x,
-            Y = y,
-            Width = 200,
-            Height = 100,
-            Text = text ?? string.Empty,
-            FontSize = 16
-        };
-
-        textBox.Tag = item.Id;
         _boardItems.Add(item);
         _elementMap[item.Id] = textBox;
 
@@ -650,10 +653,244 @@ public partial class BoardWindow : Window
                 tb.IsReadOnly = true;
                 tb.IsReadOnlyCaretVisible = false;
                 tb.Cursor = System.Windows.Input.Cursors.SizeAll;
+
+                // При потере фокуса — фиксируем команду изменения текста
+                if (tb.Tag is Guid textId && _editingTextBeforeChange != null)
+                {
+                    var currentItem = _boardItems.FirstOrDefault(i => i.Id == textId) as TextBoardItem;
+                    if (currentItem != null && currentItem.Text != _editingTextBeforeChange)
+                    {
+                        _undoManager.ExecuteCommand(new EditTextCommand(
+                            textId, _editingTextBeforeChange, currentItem.Text, SetItemText));
+                    }
+                    _editingTextBeforeChange = null;
+                }
+
+                SaveBoard();
+            }
+        };
+
+        textBox.GotFocus += (s, args) =>
+        {
+            // Запоминаем текст до начала редактирования
+            if (s is System.Windows.Controls.TextBox tb && tb.Tag is Guid id)
+            {
+                var model = _boardItems.FirstOrDefault(i => i.Id == id) as TextBoardItem;
+                if (model != null)
+                {
+                    _editingTextBeforeChange = model.Text;
+                }
             }
         };
 
         SaveBoard();
+    }
+
+    /// <summary>Создать UI-элемент для изображения и добавить на доску (для новых изображений).</summary>
+    private void CreateImageElementForCommand(ImageBoardItem item, BitmapSource? imageSource)
+    {
+        BitmapSource source;
+        if (imageSource != null)
+        {
+            source = imageSource;
+        }
+        else
+        {
+            try
+            {
+                var bytes = Convert.FromBase64String(item.ImageDataBase64);
+                var bitmap = new BitmapImage();
+                using var stream = new MemoryStream(bytes);
+                bitmap.BeginInit();
+                bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                bitmap.StreamSource = stream;
+                bitmap.EndInit();
+                bitmap.Freeze();
+                source = bitmap;
+            }
+            catch
+            {
+                return;
+            }
+        }
+
+        var displayWidth = item.Width;
+        var displayHeight = item.Height;
+
+        var border = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(45, 45, 48)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(62, 62, 66)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(4),
+            Width = displayWidth,
+            Height = displayHeight,
+            Tag = item.Id,
+            Cursor = System.Windows.Input.Cursors.Hand
+        };
+
+        var image = new System.Windows.Controls.Image
+        {
+            Source = source,
+            Stretch = Stretch.UniformToFill,
+            HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch,
+            VerticalAlignment = System.Windows.VerticalAlignment.Stretch
+        };
+
+        border.Child = image;
+        border.MouseLeftButtonDown += ImageElement_MouseLeftButtonDown;
+        border.MouseRightButtonDown += ImageElement_MouseRightButtonDown;
+
+        Canvas.SetLeft(border, item.X);
+        Canvas.SetTop(border, item.Y);
+        BoardCanvas.Children.Add(border);
+
+        _boardItems.Add(item);
+        _elementMap[item.Id] = border;
+
+        SaveBoard();
+    }
+
+    /// <summary>Восстановить элемент на доску (для undo удаления).</summary>
+    private void RestoreItem(BoardItem item)
+    {
+        switch (item)
+        {
+            case TextBoardItem textItem:
+                CreateTextElement(textItem);
+                break;
+            case ImageBoardItem imageItem:
+                CreateImageElementForCommand(imageItem, null);
+                break;
+        }
+    }
+
+    /// <summary>Удалить элемент с доски по Id (без undo).</summary>
+    private void RemoveElementById(Guid id)
+    {
+        var item = _boardItems.FirstOrDefault(i => i.Id == id);
+        if (item == null) return;
+
+        _boardItems.Remove(item);
+
+        if (_elementMap.TryGetValue(id, out var element))
+        {
+            BoardCanvas.Children.Remove(element);
+            _elementMap.Remove(id);
+        }
+
+        if (_draggedElement?.Tag is Guid draggedId && draggedId == id)
+        {
+            _draggedElement = null;
+        }
+
+        _selectedItemIds.Remove(id);
+        SaveBoard();
+    }
+
+    /// <summary>Установить позицию элемента (для undo/redo перемещения).</summary>
+    private void SetItemPosition(Guid id, double x, double y)
+    {
+        var item = _boardItems.FirstOrDefault(i => i.Id == id);
+        if (item == null) return;
+
+        item.X = x;
+        item.Y = y;
+
+        if (_elementMap.TryGetValue(id, out var element))
+        {
+            Canvas.SetLeft(element, x);
+            Canvas.SetTop(element, y);
+        }
+
+        if (_selectedItemIds.Count == 1 && _resizeItemId == id)
+        {
+            UpdateResizeHandlesPosition(item);
+        }
+    }
+
+    /// <summary>Установить границы элемента (для undo/redo изменения размера).</summary>
+    private void SetItemBounds(Guid id, Rect bounds)
+    {
+        var item = _boardItems.FirstOrDefault(i => i.Id == id);
+        if (item == null) return;
+
+        item.X = bounds.X;
+        item.Y = bounds.Y;
+        item.Width = bounds.Width;
+        item.Height = bounds.Height;
+
+        if (_elementMap.TryGetValue(id, out var element))
+        {
+            Canvas.SetLeft(element, bounds.X);
+            Canvas.SetTop(element, bounds.Y);
+
+            if (element is Border border)
+            {
+                border.Width = bounds.Width;
+                border.Height = bounds.Height;
+            }
+            else if (element is System.Windows.Controls.TextBox textBox)
+            {
+                textBox.Width = bounds.Width;
+                textBox.Height = bounds.Height;
+            }
+        }
+
+        UpdateResizeHandlesPosition(item);
+        SaveBoard();
+    }
+
+    /// <summary>Установить текст элемента (для undo/redo редактирования текста).</summary>
+    private void SetItemText(Guid id, string text)
+    {
+        var item = _boardItems.FirstOrDefault(i => i.Id == id) as TextBoardItem;
+        if (item == null) return;
+
+        item.Text = text;
+
+        if (_elementMap.TryGetValue(id, out var element) && element is System.Windows.Controls.TextBox textBox)
+        {
+            textBox.Text = text;
+        }
+
+        SaveBoard();
+    }
+
+    #endregion
+
+    #region Добавление текстового блока
+
+    private void AddTextButton_Click(object sender, RoutedEventArgs e)
+    {
+        AddTextBlock();
+    }
+
+    private void AddTextBlock(string? text = null, double x = 0, double y = 0)
+    {
+        if (x == 0 && y == 0)
+        {
+            var center = GetVisibleCenter();
+            x = center.X;
+            y = center.Y;
+        }
+
+        var item = new TextBoardItem
+        {
+            X = x,
+            Y = y,
+            Width = 200,
+            Height = 100,
+            Text = text ?? string.Empty,
+            FontSize = 16
+        };
+
+        _undoManager.ExecuteCommand(new AddItemCommand(
+            item,
+            addItem: i => CreateTextElement((TextBoardItem)i),
+            removeItem: RemoveElementById
+        ));
     }
 
     private void TextElement_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -817,36 +1054,6 @@ public partial class BoardWindow : Window
             displayWidth *= scale;
         }
 
-        var border = new Border
-        {
-            Background = new SolidColorBrush(Color.FromRgb(45, 45, 48)),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(62, 62, 66)),
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(4),
-            Padding = new Thickness(4),
-            Width = displayWidth + 8,
-            Height = displayHeight + 8,
-            Tag = Guid.Empty,
-            Cursor = System.Windows.Input.Cursors.Hand
-        };
-
-        var image = new System.Windows.Controls.Image
-        {
-            Source = imageSource,
-            Stretch = Stretch.UniformToFill,
-            HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch,
-            VerticalAlignment = System.Windows.VerticalAlignment.Stretch
-        };
-
-        border.Child = image;
-
-        border.MouseLeftButtonDown += ImageElement_MouseLeftButtonDown;
-        border.MouseRightButtonDown += ImageElement_MouseRightButtonDown;
-
-        Canvas.SetLeft(border, x);
-        Canvas.SetTop(border, y);
-        BoardCanvas.Children.Add(border);
-
         var item = new ImageBoardItem
         {
             X = x,
@@ -856,61 +1063,17 @@ public partial class BoardWindow : Window
             ImageDataBase64 = base64
         };
 
-        border.Tag = item.Id;
-        _boardItems.Add(item);
-        _elementMap[item.Id] = border;
+        // Сохраняем imageSource для немедленного использования (чтобы не декодировать base64 дважды)
+        var frozenSource = imageSource;
 
-        SaveBoard();
+        _undoManager.ExecuteCommand(new AddItemCommand(
+            item,
+            addItem: i => CreateImageElementForCommand((ImageBoardItem)i, frozenSource),
+            removeItem: RemoveElementById
+        ));
     }
 
-    /// <summary>
-    /// Перегрузка для восстановления изображения с сохранёнными размерами и Id.
-    /// </summary>
-    private void AddImageElement(BitmapSource imageSource, string base64, double x, double y, double displayWidth, double displayHeight, Guid existingId)
-    {
-        var border = new Border
-        {
-            Background = new SolidColorBrush(Color.FromRgb(45, 45, 48)),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(62, 62, 66)),
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(4),
-            Padding = new Thickness(4),
-            Width = displayWidth,
-            Height = displayHeight,
-            Tag = existingId,
-            Cursor = System.Windows.Input.Cursors.Hand
-        };
 
-        var image = new System.Windows.Controls.Image
-        {
-            Source = imageSource,
-            Stretch = Stretch.UniformToFill,
-            HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch,
-            VerticalAlignment = System.Windows.VerticalAlignment.Stretch
-        };
-
-        border.Child = image;
-
-        border.MouseLeftButtonDown += ImageElement_MouseLeftButtonDown;
-        border.MouseRightButtonDown += ImageElement_MouseRightButtonDown;
-
-        Canvas.SetLeft(border, x);
-        Canvas.SetTop(border, y);
-        BoardCanvas.Children.Add(border);
-
-        var item = new ImageBoardItem
-        {
-            Id = existingId,
-            X = x,
-            Y = y,
-            Width = displayWidth,
-            Height = displayHeight,
-            ImageDataBase64 = base64
-        };
-
-        _boardItems.Add(item);
-        _elementMap[item.Id] = border;
-    }
 
     private void ImageElement_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
@@ -1021,39 +1184,61 @@ public partial class BoardWindow : Window
     {
         if (_selectedItemIds.Count > 0)
         {
-            // Удаляем все выделенные элементы
-            var idsToDelete = _selectedItemIds.ToList();
-            foreach (var id in idsToDelete)
-            {
-                DeleteBoardItem(id);
-            }
-            _selectedItemIds.Clear();
+            DeleteSelectedItems();
         }
         else if (_draggedElement?.Tag is Guid id)
         {
-            DeleteBoardItem(id);
+            DeleteItemsWithUndo(new List<Guid> { id });
         }
     }
 
     private void DeleteBoardItem(Guid id)
     {
-        var item = _boardItems.FirstOrDefault(i => i.Id == id);
-        if (item == null) return;
+        DeleteItemsWithUndo(new List<Guid> { id });
+    }
 
-        _boardItems.Remove(item);
+    private void DeleteSelectedItems()
+    {
+        var idsToDelete = _selectedItemIds.ToList();
+        if (idsToDelete.Count == 0) return;
+        DeleteItemsWithUndo(idsToDelete);
+        _selectedItemIds.Clear();
+        HideResizeHandles();
+    }
 
-        if (_elementMap.TryGetValue(id, out var element))
+    private void DeleteItemsWithUndo(List<Guid> ids)
+    {
+        var itemsToDelete = _boardItems.Where(i => ids.Contains(i.Id)).ToList();
+        if (itemsToDelete.Count == 0) return;
+
+        // Очищаем выделение перед удалением
+        foreach (var id in ids)
         {
-            BoardCanvas.Children.Remove(element);
-            _elementMap.Remove(id);
+            if (_elementMap.TryGetValue(id, out var element))
+            {
+                HighlightElement(element, false);
+            }
         }
+        _selectedItemIds.ExceptWith(ids);
+        HideResizeHandles();
 
-        if (_draggedElement?.Tag is Guid draggedId && draggedId == id)
-        {
-            _draggedElement = null;
-        }
-
-        SaveBoard();
+        _undoManager.ExecuteCommand(new DeleteItemsCommand(
+            itemsToDelete,
+            restoreItem: RestoreItem,
+            executeDelete: () =>
+            {
+                foreach (var item in itemsToDelete)
+                {
+                    _boardItems.Remove(item);
+                    if (_elementMap.TryGetValue(item.Id, out var element))
+                    {
+                        BoardCanvas.Children.Remove(element);
+                        _elementMap.Remove(item.Id);
+                    }
+                }
+                SaveBoard();
+            }
+        ));
     }
 
     #endregion
@@ -1128,69 +1313,21 @@ public partial class BoardWindow : Window
         {
             Debug.WriteLine($"Ошибка загрузки доски: {ex.Message}");
         }
+
+        // При загрузке доски очищаем историю undo/redo
+        _undoManager.Clear();
     }
 
     private void RestoreTextItem(TextBoardItem item)
     {
-        var textBox = new System.Windows.Controls.TextBox
-        {
-            Style = (Style)FindResource("BoardTextStyle"),
-            Text = item.Text,
-            Width = item.Width,
-            Height = item.Height,
-            Tag = item.Id,
-            FontSize = item.FontSize,
-            IsReadOnly = true,
-            IsReadOnlyCaretVisible = false,
-            Cursor = System.Windows.Input.Cursors.SizeAll
-        };
-
-        textBox.PreviewMouseLeftButtonDown += TextElement_PreviewMouseLeftButtonDown;
-        textBox.TextChanged += (s, args) =>
-        {
-            if (s is System.Windows.Controls.TextBox tb && tb.Tag is Guid id)
-            {
-                var model = _boardItems.FirstOrDefault(i => i.Id == id) as TextBoardItem;
-                if (model != null)
-                {
-                    model.Text = tb.Text;
-                }
-            }
-        };
-        textBox.LostFocus += (s, args) =>
-        {
-            if (s is System.Windows.Controls.TextBox tb)
-            {
-                tb.IsReadOnly = true;
-                tb.IsReadOnlyCaretVisible = false;
-                tb.Cursor = System.Windows.Input.Cursors.SizeAll;
-            }
-        };
-
-        Canvas.SetLeft(textBox, item.X);
-        Canvas.SetTop(textBox, item.Y);
-        BoardCanvas.Children.Add(textBox);
-
-        _boardItems.Add(item);
-        _elementMap[item.Id] = textBox;
+        CreateTextElement(item);
     }
 
     private void RestoreImageItem(ImageBoardItem item)
     {
         try
         {
-            var bytes = Convert.FromBase64String(item.ImageDataBase64);
-            var image = new BitmapImage();
-            using (var stream = new MemoryStream(bytes))
-            {
-                image.BeginInit();
-                image.CacheOption = BitmapCacheOption.OnLoad;
-                image.StreamSource = stream;
-                image.EndInit();
-                image.Freeze();
-            }
-
-            AddImageElement(image, item.ImageDataBase64, item.X, item.Y, item.Width, item.Height, item.Id);
+            CreateImageElementForCommand(item, null);
         }
         catch (Exception ex)
         {
@@ -1323,8 +1460,46 @@ public partial class BoardWindow : Window
 
     private void BoardWindow_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        var isCtrl = (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control;
+
+        // Ctrl+Z — Отмена (только если не в режиме редактирования TextBox)
+        if (e.Key == Key.Z && isCtrl && !Keyboard.IsKeyDown(Key.LeftShift) && !Keyboard.IsKeyDown(Key.RightShift))
+        {
+            var focusedElement = Keyboard.FocusedElement;
+            // Если TextBox в режиме редактирования — не перехватываем (пусть работает стандартный undo текста)
+            if (focusedElement is System.Windows.Controls.TextBox tb && !tb.IsReadOnly)
+            {
+                return;
+            }
+
+            if (_undoManager.CanUndo)
+            {
+                _undoManager.Undo();
+                e.Handled = true;
+            }
+            return;
+        }
+
+        // Ctrl+Shift+Z или Ctrl+Y — Повтор
+        if ((e.Key == Key.Z && isCtrl && (Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift)))
+            || (e.Key == Key.Y && isCtrl))
+        {
+            var focusedElement = Keyboard.FocusedElement;
+            if (focusedElement is System.Windows.Controls.TextBox tb && !tb.IsReadOnly)
+            {
+                return;
+            }
+
+            if (_undoManager.CanRedo)
+            {
+                _undoManager.Redo();
+                e.Handled = true;
+            }
+            return;
+        }
+
         // Ctrl+V — вставка изображения
-        if (e.Key == Key.V && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+        if (e.Key == Key.V && isCtrl)
         {
             if (Clipboard.ContainsImage())
             {
@@ -1355,12 +1530,7 @@ public partial class BoardWindow : Window
 
             if (_selectedItemIds.Count > 0)
             {
-                var idsToDelete = _selectedItemIds.ToList();
-                foreach (var id in idsToDelete)
-                {
-                    DeleteBoardItem(id);
-                }
-                _selectedItemIds.Clear();
+                DeleteSelectedItems();
                 e.Handled = true;
             }
             else if (_selectedImageBorder != null && _selectedImageBorder.Tag is Guid imageId)
@@ -1678,6 +1848,21 @@ public partial class BoardWindow : Window
     {
         if (_isResizing)
         {
+            // Формируем команду изменения размера
+            var item = _boardItems.FirstOrDefault(i => i.Id == _resizeItemId);
+            if (item != null)
+            {
+                var newBounds = new Rect(item.X, item.Y, item.Width, item.Height);
+                if (Math.Abs(_resizeInitialBounds.X - newBounds.X) > 0.5 ||
+                    Math.Abs(_resizeInitialBounds.Y - newBounds.Y) > 0.5 ||
+                    Math.Abs(_resizeInitialBounds.Width - newBounds.Width) > 0.5 ||
+                    Math.Abs(_resizeInitialBounds.Height - newBounds.Height) > 0.5)
+                {
+                    _undoManager.ExecuteCommand(new ResizeItemCommand(
+                        _resizeItemId, _resizeInitialBounds, newBounds, SetItemBounds));
+                }
+            }
+
             _isResizing = false;
             _activeResizeHandle = null;
             BoardCanvas.ReleaseMouseCapture();
