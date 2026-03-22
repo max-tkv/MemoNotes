@@ -12,7 +12,6 @@ using Application = System.Windows.Application;
 using Clipboard = System.Windows.Clipboard;
 using Color = System.Windows.Media.Color;
 using Cursor = System.Windows.Input.Cursor;
-using Cursors = System.Windows.Input.Cursors;
 using DataFormats = System.Windows.DataFormats;
 using DragDropEffects = System.Windows.DragDropEffects;
 using DragEventArgs = System.Windows.DragEventArgs;
@@ -1058,7 +1057,9 @@ public partial class BoardWindow : Window
             var data = new BoardSaveData
             {
                 Items = _boardItems.ToList(),
-                Zoom = _currentZoom
+                Zoom = _currentZoom,
+                ScrollOffsetX = BoardScrollViewer.HorizontalOffset,
+                ScrollOffsetY = BoardScrollViewer.VerticalOffset
             };
 
             var json = System.Text.Json.JsonSerializer.Serialize(data, new System.Text.Json.JsonSerializerOptions
@@ -1089,6 +1090,10 @@ public partial class BoardWindow : Window
             BoardScaleTransform.ScaleY = _currentZoom;
             ZoomText.Text = $"{_currentZoom * 100:F0}%";
 
+            // Сохраняем позицию скролла для восстановления после рендеринга
+            var scrollX = data.ScrollOffsetX;
+            var scrollY = data.ScrollOffsetY;
+
             foreach (var item in data.Items)
             {
                 switch (item)
@@ -1101,6 +1106,13 @@ public partial class BoardWindow : Window
                         break;
                 }
             }
+
+            // Восстанавливаем позицию скролла после отрисовки элементов
+            Dispatcher.BeginInvoke(() =>
+            {
+                BoardScrollViewer.ScrollToHorizontalOffset(scrollX);
+                BoardScrollViewer.ScrollToVerticalOffset(scrollY);
+            }, System.Windows.Threading.DispatcherPriority.Loaded);
         }
         catch (Exception ex)
         {
@@ -1642,4 +1654,6 @@ public class BoardSaveData
 {
     public List<BoardItem> Items { get; set; } = new();
     public double Zoom { get; set; } = 1.0;
+    public double ScrollOffsetX { get; set; }
+    public double ScrollOffsetY { get; set; }
 }
