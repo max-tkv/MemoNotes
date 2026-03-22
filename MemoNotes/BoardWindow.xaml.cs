@@ -661,6 +661,9 @@ public partial class BoardWindow : Window
                 _draggedElement = null;
             }
 
+            // Поднимаем элемент наверх
+            BringToFront(textBox);
+
             // Включаем режим редактирования
             textBox.IsReadOnly = false;
             textBox.IsReadOnlyCaretVisible = true;
@@ -695,7 +698,17 @@ public partial class BoardWindow : Window
             }
         }
 
+        BringToFront(textBox);
         StartDrag(textBox, e);
+    }
+
+    private void BringToFront(FrameworkElement element)
+    {
+        if (BoardCanvas.Children.Contains(element))
+        {
+            BoardCanvas.Children.Remove(element);
+            BoardCanvas.Children.Add(element);
+        }
     }
 
     #endregion
@@ -915,6 +928,7 @@ public partial class BoardWindow : Window
             }
         }
 
+        BringToFront(border);
         SelectImageBorder(border);
         StartDrag(border, e);
     }
