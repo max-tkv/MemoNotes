@@ -36,7 +36,15 @@ public partial class BoardWindow : Window
     private FrameworkElement? _draggedElement;
     private Point _dragStartPoint;
     private Point _elementStartPos;
+    // Начальные позиции всех перетаскиваемых элементов (для группового перетаскивания)
+    private readonly Dictionary<Guid, Point> _dragStartPositions = new();
     private Border? _selectedImageBorder;
+
+    // Множественное выделение (rubber band)
+    private bool _isSelecting;
+    private Point _selectionStartPoint;
+    private System.Windows.Shapes.Rectangle? _selectionRectangle;
+    private readonly HashSet<Guid> _selectedItemIds = new();
 
     private readonly List<BoardItem> _boardItems = new();
     private readonly Dictionary<Guid, FrameworkElement> _elementMap = new();
@@ -159,7 +167,7 @@ public partial class BoardWindow : Window
             StartPan(e);
             e.Handled = true;
         }
-        // Клик по пустому пространству — снять выделение
+        // Клик по пустому пространству — начать выделение рамкой
         else if (e.ChangedButton == MouseButton.Left && e.ButtonState == MouseButtonState.Pressed)
         {
             // Проверяем что клик не на элементах доски (TextBox, Image, Border)
@@ -167,7 +175,9 @@ public partial class BoardWindow : Window
                 && e.OriginalSource is not System.Windows.Controls.Image
                 && e.OriginalSource is not Border)
             {
-                DeselectImageBorder();
+                ClearSelection();
+                StartSelection(e);
+                e.Handled = true;
             }
         }
     }
@@ -197,6 +207,149 @@ public partial class BoardWindow : Window
         e.Handled = true;
     }
 
+    #region Множественное выделение (rubber band)
+
+    private void StartSelection(MouseButtonEventArgs e)
+    {
+        _isSelecting = true;
+        _selectionStartPoint = e.GetPosition(BoardCanvas);
+        _selectedItemIds.Clear();
+
+        _selectionRectangle = new System.Windows.Shapes.Rectangle
+        {
+            Stroke = new SolidColorBrush(Color.FromArgb(180, 0, 120, 212)),
+            StrokeThickness = 1,
+            Fill = new SolidColorBrush(Color.FromArgb(30, 0, 120, 212)),
+            StrokeDashArray = new DoubleCollection { 4, 2 },
+            Width = 0,
+            Height = 0,
+            IsHitTestVisible = false
+        };
+
+        Canvas.SetLeft(_selectionRectangle, _selectionStartPoint.X);
+        Canvas.SetTop(_selectionRectangle, _selectionStartPoint.Y);
+        BoardCanvas.Children.Add(_selectionRectangle);
+    }
+
+    private void UpdateSelection(MouseEventArgs e)
+    {
+        if (!_isSelecting || _selectionRectangle == null) return;
+
+        var currentPos = e.GetPosition(BoardCanvas);
+        var x = Math.Min(_selectionStartPoint.X, currentPos.X);
+        var y = Math.Min(_selectionStartPoint.Y, currentPos.Y);
+        var width = Math.Abs(currentPos.X - _selectionStartPoint.X);
+        var height = Math.Abs(currentPos.Y - _selectionStartPoint.Y);
+
+        Canvas.SetLeft(_selectionRectangle, x);
+        Canvas.SetTop(_selectionRectangle, y);
+        _selectionRectangle.Width = width;
+        _selectionRectangle.Height = height;
+
+        // Выделяем элементы, попавшие в рамку
+        var selectionRect = new Rect(x, y, width, height);
+        _selectedItemIds.Clear();
+        DeselectImageBorder();
+
+        foreach (var kvp in _elementMap)
+        {
+            var element = kvp.Value;
+            var item = _boardItems.FirstOrDefault(i => i.Id == kvp.Key);
+            if (item == null) continue;
+
+            var elementRect = new Rect(item.X, item.Y, item.Width, item.Height);
+            if (selectionRect.IntersectsWith(elementRect))
+            {
+                _selectedItemIds.Add(kvp.Key);
+                HighlightElement(element, true);
+            }
+            else
+            {
+                HighlightElement(element, false);
+            }
+        }
+    }
+
+    private void EndSelection()
+    {
+        if (_selectionRectangle != null)
+        {
+            BoardCanvas.Children.Remove(_selectionRectangle);
+            _selectionRectangle = null;
+        }
+        _isSelecting = false;
+    }
+
+    private void ClearSelection()
+    {
+        EndSelection();
+        _selectedItemIds.Clear();
+
+        // Завершаем редактирование всех текстовых полей и снимаем фокус
+        DeactivateAllTextBoxesAndClearFocus();
+
+        // Снимаем подсветку со всех элементов
+        foreach (var kvp in _elementMap)
+        {
+            HighlightElement(kvp.Value, false);
+        }
+        DeselectImageBorder();
+    }
+
+    private void DeactivateAllTextBoxes()
+    {
+        foreach (var kvp in _elementMap)
+        {
+            if (kvp.Value is System.Windows.Controls.TextBox tb && !tb.IsReadOnly)
+            {
+                tb.IsReadOnly = true;
+                tb.IsReadOnlyCaretVisible = false;
+                tb.Cursor = System.Windows.Input.Cursors.SizeAll;
+            }
+        }
+    }
+
+    private void DeactivateAllTextBoxesAndClearFocus()
+    {
+        DeactivateAllTextBoxes();
+        BoardCanvas.Focus();
+    }
+
+    private void HighlightElement(FrameworkElement element, bool highlight)
+    {
+        if (element is Border border)
+        {
+            if (highlight)
+            {
+                border.BorderBrush = new SolidColorBrush(Color.FromRgb(0, 120, 212));
+                border.BorderThickness = new Thickness(2);
+                _selectedImageBorder = border;
+            }
+            else
+            {
+                border.BorderBrush = new SolidColorBrush(Color.FromRgb(62, 62, 66));
+                border.BorderThickness = new Thickness(1);
+                if (_selectedImageBorder == border)
+                    _selectedImageBorder = null;
+            }
+        }
+        else if (element is System.Windows.Controls.TextBox textBox)
+        {
+            if (highlight)
+            {
+                textBox.BorderBrush = new SolidColorBrush(Color.FromRgb(0, 120, 212));
+                textBox.BorderThickness = new Thickness(2);
+            }
+            else
+            {
+                textBox.BorderBrush = new SolidColorBrush(Color.FromRgb(62, 62, 66));
+                textBox.BorderThickness = new Thickness(1);
+            }
+        }
+    }
+
+    #endregion
+
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
@@ -211,21 +364,35 @@ public partial class BoardWindow : Window
             return;
         }
 
+        // Обновляем рамку выделения
+        if (_isSelecting && e.LeftButton == MouseButtonState.Pressed)
+        {
+            UpdateSelection(e);
+            return;
+        }
+
         if (_draggedElement != null && e.LeftButton == MouseButtonState.Pressed)
         {
             var currentPos = e.GetPosition(BoardCanvas);
             var deltaX = currentPos.X - _dragStartPoint.X;
             var deltaY = currentPos.Y - _dragStartPoint.Y;
 
-            var newX = _elementStartPos.X + deltaX;
-            var newY = _elementStartPos.Y + deltaY;
-
-            Canvas.SetLeft(_draggedElement, newX);
-            Canvas.SetTop(_draggedElement, newY);
-
-            if (_draggedElement.Tag is Guid itemId)
+            // Перемещаем все выделенные элементы
+            foreach (var kvp in _dragStartPositions)
             {
-                var item = _boardItems.FirstOrDefault(i => i.Id == itemId);
+                var id = kvp.Key;
+                var startPos = kvp.Value;
+
+                var newX = startPos.X + deltaX;
+                var newY = startPos.Y + deltaY;
+
+                if (_elementMap.TryGetValue(id, out var element))
+                {
+                    Canvas.SetLeft(element, newX);
+                    Canvas.SetTop(element, newY);
+                }
+
+                var item = _boardItems.FirstOrDefault(i => i.Id == id);
                 if (item != null)
                 {
                     item.X = newX;
@@ -239,11 +406,18 @@ public partial class BoardWindow : Window
     {
         base.OnMouseUp(e);
 
+        // Завершаем выделение рамкой
+        if (_isSelecting && e.ChangedButton == MouseButton.Left)
+        {
+            EndSelection();
+        }
+
         // Останавливаем перетаскивание элемента при отпускании ЛКМ
         if (_draggedElement != null && e.ChangedButton == MouseButton.Left)
         {
             _draggedElement.ReleaseMouseCapture();
             _draggedElement = null;
+            _dragStartPositions.Clear();
             SaveBoard();
         }
 
@@ -361,11 +535,28 @@ public partial class BoardWindow : Window
             return;
         }
 
-        // Если уже в режиме редактирования — не перехватываем одиночный клик
-        if (!textBox.IsReadOnly) return;
-
-        // Одиночный клик — перетаскивание
+        // Одиночный клик — перетаскивание (сначала деактивируем все текстовые поля)
         e.Handled = true;
+        DeactivateAllTextBoxes();
+
+        // Если кликнутый элемент уже в выделении — перетаскиваем всю группу
+        var clickedInSelection = textBox.Tag is Guid clickedId && _selectedItemIds.Contains(clickedId);
+        if (!clickedInSelection)
+        {
+            // Снимаем подсветку со всех элементов и очищаем выделение
+            _selectedItemIds.Clear();
+            foreach (var kvp in _elementMap)
+            {
+                HighlightElement(kvp.Value, false);
+            }
+            // Выделяем только кликнутый TextBox
+            if (textBox.Tag is Guid id)
+            {
+                _selectedItemIds.Add(id);
+                HighlightElement(textBox, true);
+            }
+        }
+
         StartDrag(textBox, e);
     }
 
@@ -516,6 +707,26 @@ public partial class BoardWindow : Window
     {
         if (sender is not Border border) return;
         e.Handled = true;
+        // Деактивируем редактирование текстовых полей и убираем фокус
+        DeactivateAllTextBoxesAndClearFocus();
+
+        // Если кликнутое изображение уже в выделении — перетаскиваем всю группу
+        var clickedInSelection = border.Tag is Guid clickedImgId && _selectedItemIds.Contains(clickedImgId);
+        if (!clickedInSelection)
+        {
+            // Снимаем подсветку со всех элементов и очищаем выделение
+            _selectedItemIds.Clear();
+            foreach (var kvp in _elementMap)
+            {
+                HighlightElement(kvp.Value, false);
+            }
+            // Выделяем только кликнутое изображение
+            if (border.Tag is Guid imgId)
+            {
+                _selectedItemIds.Add(imgId);
+            }
+        }
+
         SelectImageBorder(border);
         StartDrag(border, e);
     }
@@ -567,6 +778,27 @@ public partial class BoardWindow : Window
         _draggedElement = element;
         _dragStartPoint = e.GetPosition(BoardCanvas);
         _elementStartPos = new Point(Canvas.GetLeft(element), Canvas.GetTop(element));
+
+        // Запоминаем начальные позиции всех выделенных элементов
+        _dragStartPositions.Clear();
+        foreach (var id in _selectedItemIds)
+        {
+            var item = _boardItems.FirstOrDefault(i => i.Id == id);
+            if (item != null)
+            {
+                _dragStartPositions[id] = new Point(item.X, item.Y);
+            }
+        }
+
+        // Если кликнутый элемент ещё не в выделении — добавляем только его
+        if (!_dragStartPositions.ContainsKey(Guid.Empty) && element.Tag is Guid clickedId)
+        {
+            if (!_dragStartPositions.ContainsKey(clickedId))
+            {
+                _dragStartPositions[clickedId] = _elementStartPos;
+            }
+        }
+
         element.CaptureMouse();
     }
 
@@ -576,7 +808,17 @@ public partial class BoardWindow : Window
 
     private void DeleteButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_draggedElement?.Tag is Guid id)
+        if (_selectedItemIds.Count > 0)
+        {
+            // Удаляем все выделенные элементы
+            var idsToDelete = _selectedItemIds.ToList();
+            foreach (var id in idsToDelete)
+            {
+                DeleteBoardItem(id);
+            }
+            _selectedItemIds.Clear();
+        }
+        else if (_draggedElement?.Tag is Guid id)
         {
             DeleteBoardItem(id);
         }
@@ -846,10 +1088,39 @@ public partial class BoardWindow : Window
             }
         }
 
-        // Delete — удалить последний добавленный элемент
-        if (e.Key == Key.Delete && Keyboard.FocusedElement is not System.Windows.Controls.TextBox)
+        // Delete — удалить выделенные элементы
+        if (e.Key == Key.Delete)
         {
-            if (_boardItems.Count > 0)
+            var focusedElement = Keyboard.FocusedElement;
+            // Если в режиме редактирования TextBox — не перехватываем Delete (пусть работает стандартное удаление текста)
+            if (focusedElement is System.Windows.Controls.TextBox tb && !tb.IsReadOnly)
+            {
+                return;
+            }
+
+            if (_selectedItemIds.Count > 0)
+            {
+                var idsToDelete = _selectedItemIds.ToList();
+                foreach (var id in idsToDelete)
+                {
+                    DeleteBoardItem(id);
+                }
+                _selectedItemIds.Clear();
+                e.Handled = true;
+            }
+            else if (_selectedImageBorder != null && _selectedImageBorder.Tag is Guid imageId)
+            {
+                DeleteBoardItem(imageId);
+                _selectedImageBorder = null;
+                e.Handled = true;
+            }
+            else if (focusedElement is System.Windows.Controls.TextBox focusedTb && focusedTb.Tag is Guid focusedId)
+            {
+                // Удаляем TextBox по которому кликнули (он в режиме выделения, не редактирования)
+                DeleteBoardItem(focusedId);
+                e.Handled = true;
+            }
+            else if (focusedElement is not System.Windows.Controls.TextBox && _boardItems.Count > 0)
             {
                 var lastItem = _boardItems[_boardItems.Count - 1];
                 DeleteBoardItem(lastItem.Id);
