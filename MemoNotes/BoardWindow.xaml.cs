@@ -11,6 +11,8 @@ using MemoNotes.Models;
 using Application = System.Windows.Application;
 using Clipboard = System.Windows.Clipboard;
 using Color = System.Windows.Media.Color;
+using Cursor = System.Windows.Input.Cursor;
+using Cursors = System.Windows.Input.Cursors;
 using DataFormats = System.Windows.DataFormats;
 using DragDropEffects = System.Windows.DragDropEffects;
 using DragEventArgs = System.Windows.DragEventArgs;
@@ -42,6 +44,15 @@ public partial class BoardWindow : Window
     // Начальные позиции всех перетаскиваемых элементов (для группового перетаскивания)
     private readonly Dictionary<Guid, Point> _dragStartPositions = new();
     private Border? _selectedImageBorder;
+
+    // Resize handles (ручки изменения размера)
+    private bool _isResizing;
+    private ResizeHandlePosition? _activeResizeHandle;
+    private Point _resizeStartPoint;
+    private Rect _resizeInitialBounds;
+    private Guid _resizeItemId = Guid.Empty;
+    private readonly List<System.Windows.Shapes.Rectangle> _resizeHandles = new();
+    private const double HandleSize = 8;
 
     // Множественное выделение (rubber band)
     private bool _isSelecting;
@@ -129,6 +140,16 @@ public partial class BoardWindow : Window
 
         scrollViewer.ScrollToHorizontalOffset(scrollOffsetX + relativeX * zoomFactor / _currentZoom);
         scrollViewer.ScrollToVerticalOffset(scrollOffsetY + relativeY * zoomFactor / _currentZoom);
+
+        // Обновляем размеры и позиции resize handles при изменении зума
+        if (_resizeItemId != Guid.Empty)
+        {
+            var resizeItem = _boardItems.FirstOrDefault(i => i.Id == _resizeItemId);
+            if (resizeItem != null)
+            {
+                UpdateResizeHandlesPosition(resizeItem);
+            }
+        }
 
         e.Handled = true;
     }
@@ -332,6 +353,7 @@ public partial class BoardWindow : Window
         var selectionRect = new Rect(x, y, width, height);
         _selectedItemIds.Clear();
         DeselectImageBorder();
+        HideResizeHandles();
 
         foreach (var kvp in _elementMap)
         {
@@ -376,6 +398,7 @@ public partial class BoardWindow : Window
             HighlightElement(kvp.Value, false);
         }
         DeselectImageBorder();
+        HideResizeHandles();
     }
 
     private void DeactivateAllTextBoxes()
@@ -446,6 +469,13 @@ public partial class BoardWindow : Window
             return;
         }
 
+        // Resize элементов
+        if (_isResizing && e.LeftButton == MouseButtonState.Pressed)
+        {
+            UpdateResize(e);
+            return;
+        }
+
         // Обновляем рамку выделения
         if (_isSelecting && e.LeftButton == MouseButtonState.Pressed)
         {
@@ -479,6 +509,12 @@ public partial class BoardWindow : Window
                 {
                     item.X = newX;
                     item.Y = newY;
+
+                    // Обновляем resize handles для перемещаемого элемента
+                    if (_selectedItemIds.Count == 1 && _resizeItemId == id)
+                    {
+                        UpdateResizeHandlesPosition(item);
+                    }
                 }
             }
         }
@@ -488,10 +524,21 @@ public partial class BoardWindow : Window
     {
         base.OnMouseUp(e);
 
+        // Завершаем resize
+        if (_isResizing && e.ChangedButton == MouseButton.Left)
+        {
+            EndResize();
+        }
+
         // Завершаем выделение рамкой
         if (_isSelecting && e.ChangedButton == MouseButton.Left)
         {
             EndSelection();
+            // Если выбран ровно один элемент — показать resize handles
+            if (_selectedItemIds.Count == 1)
+            {
+                ShowResizeHandles(_selectedItemIds.First());
+            }
         }
 
         // Останавливаем перетаскивание элемента при отпускании ЛКМ
@@ -501,6 +548,13 @@ public partial class BoardWindow : Window
             _draggedElement = null;
             _dragStartPositions.Clear();
             SaveBoard();
+
+            // Обновляем resize handles после перетаскивания
+            if (_selectedItemIds.Count == 1)
+            {
+                var id = _selectedItemIds.First();
+                ShowResizeHandles(id);
+            }
         }
 
         // Останавливаем панорамирование при отпускании любой кнопки
@@ -627,6 +681,7 @@ public partial class BoardWindow : Window
         {
             // Снимаем подсветку со всех элементов и очищаем выделение
             _selectedItemIds.Clear();
+            HideResizeHandles();
             foreach (var kvp in _elementMap)
             {
                 HighlightElement(kvp.Value, false);
@@ -636,6 +691,7 @@ public partial class BoardWindow : Window
             {
                 _selectedItemIds.Add(id);
                 HighlightElement(textBox, true);
+                ShowResizeHandles(id);
             }
         }
 
@@ -755,9 +811,9 @@ public partial class BoardWindow : Window
         var image = new System.Windows.Controls.Image
         {
             Source = imageSource,
-            Width = displayWidth,
-            Height = displayHeight,
-            Stretch = Stretch.Uniform
+            Stretch = Stretch.UniformToFill,
+            HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch,
+            VerticalAlignment = System.Windows.VerticalAlignment.Stretch
         };
 
         border.Child = image;
@@ -785,6 +841,55 @@ public partial class BoardWindow : Window
         SaveBoard();
     }
 
+    /// <summary>
+    /// Перегрузка для восстановления изображения с сохранёнными размерами и Id.
+    /// </summary>
+    private void AddImageElement(BitmapSource imageSource, string base64, double x, double y, double displayWidth, double displayHeight, Guid existingId)
+    {
+        var border = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(45, 45, 48)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(62, 62, 66)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(4),
+            Width = displayWidth,
+            Height = displayHeight,
+            Tag = existingId,
+            Cursor = System.Windows.Input.Cursors.Hand
+        };
+
+        var image = new System.Windows.Controls.Image
+        {
+            Source = imageSource,
+            Stretch = Stretch.UniformToFill,
+            HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch,
+            VerticalAlignment = System.Windows.VerticalAlignment.Stretch
+        };
+
+        border.Child = image;
+
+        border.MouseLeftButtonDown += ImageElement_MouseLeftButtonDown;
+        border.MouseRightButtonDown += ImageElement_MouseRightButtonDown;
+
+        Canvas.SetLeft(border, x);
+        Canvas.SetTop(border, y);
+        BoardCanvas.Children.Add(border);
+
+        var item = new ImageBoardItem
+        {
+            Id = existingId,
+            X = x,
+            Y = y,
+            Width = displayWidth,
+            Height = displayHeight,
+            ImageDataBase64 = base64
+        };
+
+        _boardItems.Add(item);
+        _elementMap[item.Id] = border;
+    }
+
     private void ImageElement_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (sender is not Border border) return;
@@ -806,6 +911,7 @@ public partial class BoardWindow : Window
             if (border.Tag is Guid imgId)
             {
                 _selectedItemIds.Add(imgId);
+                ShowResizeHandles(imgId);
             }
         }
 
@@ -1048,7 +1154,7 @@ public partial class BoardWindow : Window
                 image.Freeze();
             }
 
-            AddImageElement(image, item.ImageDataBase64, image.PixelWidth, image.PixelHeight, item.X, item.Y);
+            AddImageElement(image, item.ImageDataBase64, item.X, item.Y, item.Width, item.Height, item.Id);
         }
         catch (Exception ex)
         {
@@ -1214,6 +1320,301 @@ public partial class BoardWindow : Window
         if (e.Key == Key.Escape)
         {
             Keyboard.Focus(this);
+        }
+    }
+
+    #endregion
+
+    #region Resize handles (ручки изменения размера)
+
+    private enum ResizeHandlePosition
+    {
+        TopLeft, TopCenter, TopRight,
+        MiddleLeft, MiddleRight,
+        BottomLeft, BottomCenter, BottomRight
+    }
+
+    private void ShowResizeHandles(Guid itemId)
+    {
+        HideResizeHandles();
+
+        var item = _boardItems.FirstOrDefault(i => i.Id == itemId);
+        if (item == null) return;
+
+        _resizeItemId = itemId;
+
+        var positions = new[]
+        {
+            ResizeHandlePosition.TopLeft, ResizeHandlePosition.TopCenter, ResizeHandlePosition.TopRight,
+            ResizeHandlePosition.MiddleLeft, ResizeHandlePosition.MiddleRight,
+            ResizeHandlePosition.BottomLeft, ResizeHandlePosition.BottomCenter, ResizeHandlePosition.BottomRight
+        };
+
+        foreach (var pos in positions)
+        {
+            var visualSize = HandleSize / _currentZoom;
+            var handle = new System.Windows.Shapes.Rectangle
+            {
+                Width = visualSize,
+                Height = visualSize,
+                Fill = new SolidColorBrush(Color.FromRgb(255, 255, 255)),
+                Stroke = new SolidColorBrush(Color.FromRgb(0, 120, 212)),
+                StrokeThickness = 1 / _currentZoom,
+                Cursor = GetResizeCursor(pos),
+                Tag = pos
+            };
+
+            handle.PreviewMouseLeftButtonDown += ResizeHandle_PreviewMouseLeftButtonDown;
+
+            BoardCanvas.Children.Add(handle);
+            _resizeHandles.Add(handle);
+        }
+
+        UpdateResizeHandlesPosition(item);
+    }
+
+    private void HideResizeHandles()
+    {
+        foreach (var handle in _resizeHandles)
+        {
+            BoardCanvas.Children.Remove(handle);
+        }
+        _resizeHandles.Clear();
+        _resizeItemId = Guid.Empty;
+        _isResizing = false;
+        _activeResizeHandle = null;
+    }
+
+    private void UpdateResizeHandlesPosition(BoardItem item)
+    {
+        var visualHandleSize = HandleSize / _currentZoom;
+
+        foreach (var handle in _resizeHandles)
+        {
+            if (handle.Tag is not ResizeHandlePosition pos) continue;
+
+            // Обновляем визуальный размер при каждом позиционировании (на случай изменения зума)
+            handle.Width = visualHandleSize;
+            handle.Height = visualHandleSize;
+            handle.StrokeThickness = 1 / _currentZoom;
+
+            var x = pos switch
+            {
+                ResizeHandlePosition.TopLeft or ResizeHandlePosition.MiddleLeft or ResizeHandlePosition.BottomLeft
+                    => item.X - visualHandleSize / 2,
+                ResizeHandlePosition.TopCenter or ResizeHandlePosition.BottomCenter
+                    => item.X + item.Width / 2 - visualHandleSize / 2,
+                _ => item.X + item.Width - visualHandleSize / 2
+            };
+
+            var y = pos switch
+            {
+                ResizeHandlePosition.TopLeft or ResizeHandlePosition.TopCenter or ResizeHandlePosition.TopRight
+                    => item.Y - visualHandleSize / 2,
+                ResizeHandlePosition.MiddleLeft or ResizeHandlePosition.MiddleRight
+                    => item.Y + item.Height / 2 - visualHandleSize / 2,
+                _ => item.Y + item.Height - visualHandleSize / 2
+            };
+
+            Canvas.SetLeft(handle, x);
+            Canvas.SetTop(handle, y);
+        }
+    }
+
+    private static Cursor GetResizeCursor(ResizeHandlePosition pos)
+    {
+        return pos switch
+        {
+            ResizeHandlePosition.TopLeft or ResizeHandlePosition.BottomRight => System.Windows.Input.Cursors.SizeNWSE,
+            ResizeHandlePosition.TopRight or ResizeHandlePosition.BottomLeft => System.Windows.Input.Cursors.SizeNESW,
+            ResizeHandlePosition.TopCenter or ResizeHandlePosition.BottomCenter => System.Windows.Input.Cursors.SizeNS,
+            ResizeHandlePosition.MiddleLeft or ResizeHandlePosition.MiddleRight => System.Windows.Input.Cursors.SizeWE,
+            _ => System.Windows.Input.Cursors.SizeAll
+        };
+    }
+
+    private void ResizeHandle_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not System.Windows.Shapes.Rectangle handle) return;
+        if (handle.Tag is not ResizeHandlePosition pos) return;
+
+        e.Handled = true;
+
+        // Предотвращаем запуск перетаскивания элемента
+        if (_draggedElement != null)
+        {
+            _draggedElement.ReleaseMouseCapture();
+            _draggedElement = null;
+            _dragStartPositions.Clear();
+        }
+
+        _isResizing = true;
+        _activeResizeHandle = pos;
+        _resizeStartPoint = e.GetPosition(BoardCanvas);
+
+        var item = _boardItems.FirstOrDefault(i => i.Id == _resizeItemId);
+        if (item != null)
+        {
+            _resizeInitialBounds = new Rect(item.X, item.Y, item.Width, item.Height);
+        }
+
+        BoardCanvas.CaptureMouse();
+    }
+
+    private void UpdateResize(MouseEventArgs e)
+    {
+        if (!_isResizing || _activeResizeHandle == null) return;
+
+        var item = _boardItems.FirstOrDefault(i => i.Id == _resizeItemId);
+        if (item == null) return;
+
+        var currentPos = e.GetPosition(BoardCanvas);
+        var deltaX = currentPos.X - _resizeStartPoint.X;
+        var deltaY = currentPos.Y - _resizeStartPoint.Y;
+
+        var minSize = 30.0;
+        var newX = _resizeInitialBounds.X;
+        var newY = _resizeInitialBounds.Y;
+        var newWidth = _resizeInitialBounds.Width;
+        var newHeight = _resizeInitialBounds.Height;
+
+        // Для изображений сохраняем пропорции (aspect ratio)
+        bool isImage = item is ImageBoardItem;
+        double aspectRatio = _resizeInitialBounds.Width / Math.Max(_resizeInitialBounds.Height, 0.001);
+
+        switch (_activeResizeHandle)
+        {
+            case ResizeHandlePosition.TopLeft:
+                newX = _resizeInitialBounds.X + deltaX;
+                newY = _resizeInitialBounds.Y + deltaY;
+                newWidth = _resizeInitialBounds.Width - deltaX;
+                newHeight = _resizeInitialBounds.Height - deltaY;
+                break;
+            case ResizeHandlePosition.TopCenter:
+                newY = _resizeInitialBounds.Y + deltaY;
+                newHeight = _resizeInitialBounds.Height - deltaY;
+                if (isImage)
+                {
+                    newWidth = newHeight * aspectRatio;
+                    newX = _resizeInitialBounds.X + (_resizeInitialBounds.Width - newWidth) / 2;
+                }
+                break;
+            case ResizeHandlePosition.TopRight:
+                newY = _resizeInitialBounds.Y + deltaY;
+                newWidth = _resizeInitialBounds.Width + deltaX;
+                newHeight = _resizeInitialBounds.Height - deltaY;
+                break;
+            case ResizeHandlePosition.MiddleLeft:
+                newX = _resizeInitialBounds.X + deltaX;
+                newWidth = _resizeInitialBounds.Width - deltaX;
+                if (isImage)
+                {
+                    newHeight = newWidth / aspectRatio;
+                    newY = _resizeInitialBounds.Y + (_resizeInitialBounds.Height - newHeight) / 2;
+                }
+                break;
+            case ResizeHandlePosition.MiddleRight:
+                newWidth = _resizeInitialBounds.Width + deltaX;
+                if (isImage)
+                {
+                    newHeight = newWidth / aspectRatio;
+                    newY = _resizeInitialBounds.Y + (_resizeInitialBounds.Height - newHeight) / 2;
+                }
+                break;
+            case ResizeHandlePosition.BottomLeft:
+                newX = _resizeInitialBounds.X + deltaX;
+                newWidth = _resizeInitialBounds.Width - deltaX;
+                newHeight = _resizeInitialBounds.Height + deltaY;
+                break;
+            case ResizeHandlePosition.BottomCenter:
+                newHeight = _resizeInitialBounds.Height + deltaY;
+                if (isImage)
+                {
+                    newWidth = newHeight * aspectRatio;
+                    newX = _resizeInitialBounds.X + (_resizeInitialBounds.Width - newWidth) / 2;
+                }
+                break;
+            case ResizeHandlePosition.BottomRight:
+                newWidth = _resizeInitialBounds.Width + deltaX;
+                newHeight = _resizeInitialBounds.Height + deltaY;
+                break;
+        }
+
+        // Для угловых ручек изображений: определяем dominant axis по наибольшему смещению
+        if (isImage && (_activeResizeHandle == ResizeHandlePosition.TopLeft
+            || _activeResizeHandle == ResizeHandlePosition.TopRight
+            || _activeResizeHandle == ResizeHandlePosition.BottomLeft
+            || _activeResizeHandle == ResizeHandlePosition.BottomRight))
+        {
+            // Используем ширину как ведущую ось, высоту подстраиваем по пропорциям
+            newHeight = newWidth / aspectRatio;
+            switch (_activeResizeHandle)
+            {
+                case ResizeHandlePosition.TopLeft:
+                case ResizeHandlePosition.TopRight:
+                    newY = _resizeInitialBounds.Bottom - newHeight;
+                    break;
+                case ResizeHandlePosition.BottomLeft:
+                case ResizeHandlePosition.BottomRight:
+                    newY = _resizeInitialBounds.Y;
+                    break;
+            }
+        }
+
+        // Ограничение минимального размера
+        if (newWidth < minSize)
+        {
+            if (_activeResizeHandle == ResizeHandlePosition.TopLeft || _activeResizeHandle == ResizeHandlePosition.MiddleLeft || _activeResizeHandle == ResizeHandlePosition.BottomLeft)
+                newX = _resizeInitialBounds.Right - minSize;
+            newWidth = minSize;
+            if (isImage)
+                newHeight = minSize / aspectRatio;
+        }
+
+        if (newHeight < minSize)
+        {
+            if (_activeResizeHandle == ResizeHandlePosition.TopLeft || _activeResizeHandle == ResizeHandlePosition.TopCenter || _activeResizeHandle == ResizeHandlePosition.TopRight)
+                newY = _resizeInitialBounds.Bottom - minSize;
+            newHeight = minSize;
+            if (isImage)
+                newWidth = minSize * aspectRatio;
+        }
+
+        // Применяем новые размеры
+        item.X = newX;
+        item.Y = newY;
+        item.Width = newWidth;
+        item.Height = newHeight;
+
+        if (_elementMap.TryGetValue(item.Id, out var element))
+        {
+            Canvas.SetLeft(element, newX);
+            Canvas.SetTop(element, newY);
+
+            if (element is Border border)
+            {
+                border.Width = newWidth;
+                border.Height = newHeight;
+                // Изображение внутри Border растягивается автоматически (Stretch=UniformToFill)
+            }
+            else if (element is System.Windows.Controls.TextBox textBox)
+            {
+                textBox.Width = newWidth;
+                textBox.Height = newHeight;
+            }
+        }
+
+        UpdateResizeHandlesPosition(item);
+    }
+
+    private void EndResize()
+    {
+        if (_isResizing)
+        {
+            _isResizing = false;
+            _activeResizeHandle = null;
+            BoardCanvas.ReleaseMouseCapture();
+            SaveBoard();
         }
     }
 
