@@ -70,6 +70,13 @@ public class StrokeBoardItem : BoardItem
     public List<double> Points { get; set; } = new();
 
     /// <summary>
+    /// Количество точек (пар X,Y) в каждой фигуре (фразе рисования).
+    /// Если рисование было непрерывным, здесь будет несколько значений.
+    /// При загрузке используется для разделения на несколько PathFigure.
+    /// </summary>
+    public List<int> FigureLengths { get; set; } = new();
+
+    /// <summary>
     /// Оригинальная ширина штриха (до ресайза). Используется для пересчёта координат.
     /// </summary>
     public double OriginalWidth { get; set; }
