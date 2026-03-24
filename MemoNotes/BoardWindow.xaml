@@ -194,7 +194,7 @@
             <Grid>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
                     <!-- Добавить текст -->
-                    <Button Content="📝"
+                    <Button Content="𝐓"
                             Style="{StaticResource ToolbarButtonStyle}"
                             ToolTip="Добавить текстовый блок (T)"
                             Click="AddTextButton_Click"/>

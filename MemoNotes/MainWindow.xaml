@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:enums="clr-namespace:MemoNotes.Enums"
         mc:Ignorable="d"
-        Title="Настройки" Height="300" Width="400"
+        Title="Настройки" Height="400" Width="400"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         ShowInTaskbar="False" Topmost="True"
         WindowStartupLocation="CenterScreen"
@@ -253,6 +253,10 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
                     <TextBlock
@@ -275,6 +279,62 @@
                         <ComboBoxItem Content="Нижний левый" Tag="{x:Static enums:MousePosition.BottomLeft}"/>
                         <ComboBoxItem Content="Нижний правый" Tag="{x:Static enums:MousePosition.BottomRight}"/>
                     </ComboBox>
+
+                    <!-- Разделитель -->
+                    <Border Grid.Row="2" Height="1" Background="#3e3e42" Margin="0,15,0,15"/>
+
+                    <!-- Клавиша непрерывного рисования -->
+                    <TextBlock
+                        Grid.Row="3"
+                        Text="Клавиша непрерывного рисования:"
+                        FontSize="14"
+                        Foreground="#cccccc"
+                        VerticalAlignment="Center"
+                        Margin="0,0,0,4"
+                        TextWrapping="Wrap"/>
+                    <TextBlock
+                        Grid.Row="4"
+                        Text="Зажатая клавиша = один элемент"
+                        FontSize="11"
+                        Foreground="#888888"
+                        VerticalAlignment="Center"
+                        Margin="0,0,0,4"/>
+
+                    <Grid Grid.Row="5">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBox
+                            x:Name="ContinuousStrokeKeyTextBox"
+                            Height="32"
+                            IsReadOnly="True"
+                            Text="Нет"
+                            Foreground="#cccccc"
+                            FontSize="14"
+                            VerticalContentAlignment="Center"
+                            Padding="8,0"
+                            Background="#3e3e42"
+                            BorderBrush="#1c1c1c"
+                            BorderThickness="1"
+                            CaretBrush="White"
+                            ToolTip="Нажмите на поле, затем зажмите модификаторы и клавишу"
+                            PreviewMouseLeftButtonDown="ContinuousStrokeKeyTextBox_MouseDown"
+                            LostFocus="ContinuousStrokeKeyTextBox_LostFocus"/>
+                        <Button
+                            Grid.Column="1"
+                            Content="Сброс"
+                            Height="32"
+                            Width="60"
+                            Margin="5,0,0,0"
+                            Background="#3e3e42"
+                            Foreground="#cccccc"
+                            BorderBrush="#1c1c1c"
+                            BorderThickness="1"
+                            FontSize="13"
+                            Click="ResetContinuousStrokeKey_Click"/>
+                    </Grid>
                 </Grid>
             </Grid>
         </Border>
