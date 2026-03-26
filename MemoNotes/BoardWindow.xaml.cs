@@ -1645,9 +1645,13 @@ public partial class BoardWindow : Window
 
     private void RefreshPinnedButtonState()
     {
-        PinnedButton.Foreground = Topmost
-            ? new SolidColorBrush(Color.FromRgb(62, 62, 66))
-            : new SolidColorBrush(Color.FromRgb(255, 255, 255));
+        var icon = PinnedButton.Content as FontAwesome.WPF.ImageAwesome;
+        if (icon != null)
+        {
+            icon.Foreground = Topmost
+                ? new SolidColorBrush(Color.FromRgb(255, 215, 0))   // Золотой при закреплении
+                : new SolidColorBrush(Color.FromRgb(204, 204, 204)); // Стандартный серый
+        }
     }
 
     /// <summary>
@@ -1674,6 +1678,7 @@ public partial class BoardWindow : Window
         SaveBoard();
         Properties.Settings.Default.BoardWindowWidth = Width;
         Properties.Settings.Default.BoardHeight = Height;
+        Properties.Settings.Default.TopmostTextBoxWindow = Topmost;
         Properties.Settings.Default.Save();
         base.OnClosing(e);
     }
