@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:d="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:fa="clr-namespace:FontAwesome.WPF;assembly=FontAwesome.WPF"
         mc:Ignorable="d"
         Title="Memo Board" Height="700" Width="1000" MinWidth="400" MinHeight="300"
         WindowStyle="None" AllowsTransparency="True" Background="#1e1e1e"
@@ -194,35 +195,33 @@
             <Grid>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
                     <!-- Добавить текст -->
-                    <Button Content="𝐓"
-                            Style="{StaticResource ToolbarButtonStyle}"
+                    <Button Style="{StaticResource ToolbarButtonStyle}"
                             ToolTip="Добавить текстовый блок (T)"
-                            Click="AddTextButton_Click"/>
+                            Click="AddTextButton_Click">
+                        <fa:ImageAwesome Icon="Font" Width="14" Height="14" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                    </Button>
                     
                     <!-- Вставить изображение -->
-                    <Button Content="🖼"
-                            Style="{StaticResource ToolbarButtonStyle}"
+                    <Button Style="{StaticResource ToolbarButtonStyle}"
                             ToolTip="Вставить изображение (Ctrl+V)"
-                            Click="AddImageButton_Click"/>
+                            Click="AddImageButton_Click">
+                        <fa:ImageAwesome Icon="Image" Width="14" Height="14" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                    </Button>
 
                     <!-- Кисть -->
                     <Button x:Name="BrushButton"
-                            Content="✏"
                             Style="{StaticResource ToolbarButtonStyle}"
                             ToolTip="Кисть (B)"
-                            Click="BrushButton_Click"/>
+                            Click="BrushButton_Click">
+                        <fa:ImageAwesome Icon="PaintBrush" Width="14" Height="14" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                    </Button>
 
                     <!-- Удалить выбранное -->
-                    <Button Content="🗑"
-                            Style="{StaticResource ToolbarButtonStyle}"
+                    <Button Style="{StaticResource ToolbarButtonStyle}"
                             ToolTip="Удалить выбранное (Delete)"
-                            Click="DeleteButton_Click"/>
-
-                    <!-- Сбросить зум -->
-                    <Button Content="🔄"
-                            Style="{StaticResource ToolbarButtonStyle}"
-                            ToolTip="Сбросить масштаб"
-                            Click="ResetZoom_Click"/>
+                            Click="DeleteButton_Click">
+                        <fa:ImageAwesome Icon="Trash" Width="14" Height="14" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                    </Button>
                 </StackPanel>
 
                 <!-- Зум индикатор -->
@@ -235,27 +234,31 @@
 
                 <!-- Кнопки управления окном справа -->
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,10,0">
-                    <Button Content="⚙"
-                            Style="{StaticResource ToolbarButtonStyle}"
+                    <Button Style="{StaticResource ToolbarButtonStyle}"
                             ToolTip="Настройки"
-                            Click="SettingsButton_Click"/>
+                            Click="SettingsButton_Click">
+                        <fa:ImageAwesome Icon="Gear" Width="14" Height="14" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                    </Button>
 
-                    <Button Content="📌"
-                            x:Name="PinnedButton"
+                    <Button x:Name="PinnedButton"
                             Style="{StaticResource ToolbarButtonStyle}"
                             ToolTip="Закрепить поверх всех окон"
-                            Click="PinnedButton_Click"/>
+                            Click="PinnedButton_Click">
+                        <fa:ImageAwesome Icon="ThumbTack" Width="14" Height="14" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                    </Button>
 
-                    <Button Content="⊕"
-                            x:Name="MaximizeButton"
+                    <Button x:Name="MaximizeButton"
                             Style="{StaticResource ToolbarButtonStyle}"
                             ToolTip="Развернуть во весь экран"
-                            Click="MaximizeButton_Click"/>
+                            Click="MaximizeButton_Click">
+                        <fa:ImageAwesome Icon="WindowMaximize" Width="14" Height="14" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                    </Button>
                     
-                    <Button Content="✕"
-                            Style="{StaticResource CloseButtonStyle}"
+                    <Button Style="{StaticResource CloseButtonStyle}"
                             ToolTip="Закрыть"
-                            Click="CloseButton_Click"/>
+                            Click="CloseButton_Click">
+                        <fa:ImageAwesome Icon="Times" Width="14" Height="14" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>
