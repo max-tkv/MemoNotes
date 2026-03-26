@@ -1598,7 +1598,7 @@ public partial class BoardWindow : Window
             Top = _normalBounds.Y;
             Width = _normalBounds.Width;
             Height = _normalBounds.Height;
-            MaximizeButton.Content = new FontAwesome.WPF.ImageAwesome { Icon = FontAwesome.WPF.FontAwesomeIcon.WindowMaximize, Width = 16, Height = 16, Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xCC, 0xCC, 0xCC)) };
+            MaximizeButton.Content = new FontAwesome.WPF.ImageAwesome { Icon = FontAwesome.WPF.FontAwesomeIcon.Expand, Width = 14, Height = 14, Foreground = new SolidColorBrush(Color.FromRgb(0xCC, 0xCC, 0xCC)) };
             MaximizeButton.ToolTip = "Развернуть во весь экран";
             _isMaximized = false;
         }
@@ -1611,7 +1611,7 @@ public partial class BoardWindow : Window
             Top = 0;
             Width = SystemParameters.PrimaryScreenWidth;
             Height = SystemParameters.PrimaryScreenHeight;
-            MaximizeButton.Content = new FontAwesome.WPF.ImageAwesome { Icon = FontAwesome.WPF.FontAwesomeIcon.WindowRestore, Width = 16, Height = 16, Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xCC, 0xCC, 0xCC)) };
+            MaximizeButton.Content = new FontAwesome.WPF.ImageAwesome { Icon = FontAwesome.WPF.FontAwesomeIcon.Compress, Width = 14, Height = 14, Foreground = new SolidColorBrush(Color.FromRgb(0xCC, 0xCC, 0xCC)) };
             MaximizeButton.ToolTip = "Восстановить размер";
             _isMaximized = true;
         }
