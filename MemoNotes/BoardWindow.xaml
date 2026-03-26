@@ -251,7 +251,7 @@
                             Style="{StaticResource ToolbarButtonStyle}"
                             ToolTip="Развернуть во весь экран"
                             Click="MaximizeButton_Click">
-                        <fa:ImageAwesome Icon="WindowMaximize" Width="14" Height="14" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                        <fa:ImageAwesome Icon="Compress" Width="14" Height="14" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                     </Button>
                     
                     <Button Style="{StaticResource CloseButtonStyle}"

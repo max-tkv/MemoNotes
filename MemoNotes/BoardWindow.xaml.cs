@@ -3,6 +3,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
@@ -24,6 +25,20 @@ namespace MemoNotes;
 public partial class BoardWindow : Window
 {
     #region Поля
+
+    // Win32 — ресайз окна за углы/рёбра
+    private const int WM_NCHITTEST = 0x0084;
+    private const int HTLEFT = 10;
+    private const int HTRIGHT = 11;
+    private const int HTTOP = 12;
+    private const int HTTOPLEFT = 13;
+    private const int HTTOPRIGHT = 14;
+    private const int HTBOTTOM = 15;
+    private const int HTBOTTOMLEFT = 16;
+    private const int HTBOTTOMRIGHT = 17;
+    private const int ResizeGripSize = 6; // Размер зоны ресайза в пикселях
+
+    private HwndSource? _hwndSource;
 
     private static readonly string AppDataDir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MemoNotes");
@@ -1564,6 +1579,85 @@ public partial class BoardWindow : Window
     #endregion
 
     #region Обработчики окна
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        _hwndSource = PresentationSource.FromVisual(this) as HwndSource;
+        if (_hwndSource != null)
+        {
+            _hwndSource.AddHook(WndProcHook);
+        }
+    }
+
+    /// <summary>
+    /// Win32 WndProc хук — обрабатывает WM_NCHITTEST для ресайза окна за углы и рёбра.
+    /// </summary>
+    private IntPtr WndProcHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg == WM_NCHITTEST)
+        {
+            // Извлекаем координаты мыши из lParam (экранные координаты)
+            int x = (short)((lParam.ToInt64() >> 0) & 0xFFFF);
+            int y = (short)((lParam.ToInt64() >> 16) & 0xFFFF);
+
+            // Конвертируем экранные координаты в координаты окна
+            var point = PointFromScreen(new Point(x, y));
+
+            // Определяем зону
+            double w = ActualWidth;
+            double h = ActualHeight;
+            int grip = ResizeGripSize;
+
+            bool isTop = point.Y < grip;
+            bool isBottom = point.Y > h - grip;
+            bool isLeft = point.X < grip;
+            bool isRight = point.X > w - grip;
+
+            if (isTop && isLeft)
+            {
+                handled = true;
+                return (IntPtr)HTTOPLEFT;
+            }
+            if (isTop && isRight)
+            {
+                handled = true;
+                return (IntPtr)HTTOPRIGHT;
+            }
+            if (isBottom && isLeft)
+            {
+                handled = true;
+                return (IntPtr)HTBOTTOMLEFT;
+            }
+            if (isBottom && isRight)
+            {
+                handled = true;
+                return (IntPtr)HTBOTTOMRIGHT;
+            }
+            if (isTop)
+            {
+                handled = true;
+                return (IntPtr)HTTOP;
+            }
+            if (isBottom)
+            {
+                handled = true;
+                return (IntPtr)HTBOTTOM;
+            }
+            if (isLeft)
+            {
+                handled = true;
+                return (IntPtr)HTLEFT;
+            }
+            if (isRight)
+            {
+                handled = true;
+                return (IntPtr)HTRIGHT;
+            }
+        }
+
+        return IntPtr.Zero;
+    }
 
     private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
     {
