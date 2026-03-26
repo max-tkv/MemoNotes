@@ -62,4 +62,33 @@ internal sealed class Settings : ApplicationSettingsBase
         get => (int)this["ContinuousStrokeModifier"];
         set => this["ContinuousStrokeModifier"] = value;
     }
+
+    /// <summary>
+    /// Дата отклонения обновления в формате ISO 8601 (yyyy-MM-dd).
+    /// Пустая строка означает, что обновление не отклонялось.
+    /// </summary>
+    [UserScopedSetting]
+    [DefaultSettingValue("")]
+    public string UpdateDismissedDate
+    {
+        get => (string)this["UpdateDismissedDate"];
+        set => this["UpdateDismissedDate"] = value;
+    }
+
+    /// <summary>
+    /// Отклонена ли версия обновления до конца текущего дня.
+    /// </summary>
+    public bool IsUpdateDismissedToday()
+    {
+        if (string.IsNullOrWhiteSpace(UpdateDismissedDate))
+            return false;
+
+        if (DateTime.TryParse(UpdateDismissedDate, out var dismissedDate))
+        {
+            var today = DateTime.Now.Date;
+            return dismissedDate.Date == today;
+        }
+
+        return false;
+    }
 }

@@ -3,6 +3,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
@@ -25,6 +26,20 @@ public partial class BoardWindow : Window
 {
     #region Поля
 
+    // Win32 — ресайз окна за углы/рёбра
+    private const int WM_NCHITTEST = 0x0084;
+    private const int HTLEFT = 10;
+    private const int HTRIGHT = 11;
+    private const int HTTOP = 12;
+    private const int HTTOPLEFT = 13;
+    private const int HTTOPRIGHT = 14;
+    private const int HTBOTTOM = 15;
+    private const int HTBOTTOMLEFT = 16;
+    private const int HTBOTTOMRIGHT = 17;
+    private const int ResizeGripSize = 6; // Размер зоны ресайза в пикселях
+
+    private HwndSource? _hwndSource;
+
     private static readonly string AppDataDir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MemoNotes");
     private static readonly string BoardDataFilePath = Path.Combine(AppDataDir, "board.memo");
@@ -43,7 +58,7 @@ public partial class BoardWindow : Window
     // Начальные позиции всех перетаскиваемых элементов (для группового перетаскивания)
     private readonly Dictionary<Guid, Point> _dragStartPositions = new();
     private Border? _selectedImageBorder;
-    private Border? _selectionOverlay; // Оверлейный бордер для выделения, не влияет на layout
+    private readonly Dictionary<Guid, Border> _selectionOverlays = new(); // Оверлейные бордеры для выделения, не влияют на layout
 
     // Resize handles (ручки изменения размера)
     private bool _isResizing;
@@ -471,34 +486,16 @@ public partial class BoardWindow : Window
     {
         if (element is Border border)
         {
-            bool isStroke = border.Tag is Guid id && _strokeOriginalData.ContainsKey(id);
             if (highlight)
             {
-                if (isStroke)
-                {
-                    // Для штрихов — подсвечиваем сам бордер (у них нет вложенного Image)
-                    border.BorderBrush = new SolidColorBrush(Color.FromRgb(0, 120, 212));
-                    border.BorderThickness = new Thickness(2);
-                }
-                else
-                {
-                    // Для изображений — используем оверлейный бордер, не трогаем layout
-                    SelectImageBorder(border);
-                }
+                // Для всех Border-элементов (изображения и штрихи) — оверлейный бордер, не трогаем layout
+                AddSelectionOverlay(border);
                 _selectedImageBorder = border;
             }
-            else
+            else if (border.Tag is Guid id)
             {
-                if (isStroke)
-                {
-                    border.BorderBrush = System.Windows.Media.Brushes.Transparent;
-                    border.BorderThickness = new Thickness(0);
-                }
-                else
-                {
-                    // Для изображений — убираем оверлей, не трогаем сам элемент
-                    DeselectImageBorder();
-                }
+                // Убираем оверлей, не трогаем сам элемент
+                RemoveSelectionOverlay(id);
                 if (_selectedImageBorder == border)
                     _selectedImageBorder = null;
             }
@@ -574,12 +571,6 @@ public partial class BoardWindow : Window
                 {
                     Canvas.SetLeft(element, newX);
                     Canvas.SetTop(element, newY);
-
-                    // Обновляем позицию оверлейного бордера выделения
-                    if (element == _selectedImageBorder)
-                    {
-                        UpdateSelectionOverlayPosition(element);
-                    }
                 }
 
                 var item = _boardItems.FirstOrDefault(i => i.Id == id);
@@ -595,6 +586,9 @@ public partial class BoardWindow : Window
                     }
                 }
             }
+
+            // Обновляем позиции всех оверлейных бордеров выделения
+            UpdateAllSelectionOverlayPositions();
         }
     }
 
@@ -1252,15 +1246,17 @@ public partial class BoardWindow : Window
         }
     }
 
-    private void SelectImageBorder(Border border)
+    private void AddSelectionOverlay(Border border)
     {
-        // Снимаем подсветку с предыдущего
-        DeselectImageBorder();
+        if (border.Tag is not Guid id) return;
+
+        // Убираем существующий оверлей для этого элемента (если есть)
+        RemoveSelectionOverlay(id);
 
         _selectedImageBorder = border;
 
         // Создаём оверлейный бордер поверх элемента — не влияет на layout
-        _selectionOverlay = new Border
+        var overlay = new Border
         {
             BorderBrush = new SolidColorBrush(Color.FromRgb(0, 120, 212)),
             BorderThickness = new Thickness(2),
@@ -1271,36 +1267,70 @@ public partial class BoardWindow : Window
 
         var left = Canvas.GetLeft(border);
         var top = Canvas.GetTop(border);
-        Canvas.SetLeft(_selectionOverlay, left);
-        Canvas.SetTop(_selectionOverlay, top);
-        _selectionOverlay.Width = border.ActualWidth > 0 ? border.ActualWidth : border.Width;
-        _selectionOverlay.Height = border.ActualHeight > 0 ? border.ActualHeight : border.Height;
+        Canvas.SetLeft(overlay, left);
+        Canvas.SetTop(overlay, top);
+        overlay.Width = border.ActualWidth > 0 ? border.ActualWidth : border.Width;
+        overlay.Height = border.ActualHeight > 0 ? border.ActualHeight : border.Height;
 
-        BoardCanvas.Children.Add(_selectionOverlay);
+        _selectionOverlays[id] = overlay;
+        BoardCanvas.Children.Add(overlay);
+    }
+
+    private void RemoveSelectionOverlay(Guid id)
+    {
+        if (_selectionOverlays.TryGetValue(id, out var overlay))
+        {
+            BoardCanvas.Children.Remove(overlay);
+            _selectionOverlays.Remove(id);
+        }
+    }
+
+    private void SelectImageBorder(Border border)
+    {
+        AddSelectionOverlay(border);
     }
 
     private void DeselectImageBorder()
     {
-        // Убираем оверлейный бордер
-        if (_selectionOverlay != null)
+        // Убираем все оверлейные бордеры
+        foreach (var overlay in _selectionOverlays.Values.ToList())
         {
-            BoardCanvas.Children.Remove(_selectionOverlay);
-            _selectionOverlay = null;
+            BoardCanvas.Children.Remove(overlay);
         }
+        _selectionOverlays.Clear();
         _selectedImageBorder = null;
     }
 
     /// <summary>Обновить позицию и размер оверлейного бордера выделения (при перетаскивании/ресайзе).</summary>
     private void UpdateSelectionOverlayPosition(FrameworkElement element)
     {
-        if (_selectionOverlay == null) return;
+        if (element.Tag is not Guid id) return;
+        if (!_selectionOverlays.TryGetValue(id, out var overlay)) return;
 
         var left = Canvas.GetLeft(element);
         var top = Canvas.GetTop(element);
-        Canvas.SetLeft(_selectionOverlay, left);
-        Canvas.SetTop(_selectionOverlay, top);
-        _selectionOverlay.Width = element.ActualWidth > 0 ? element.ActualWidth : element.Width;
-        _selectionOverlay.Height = element.ActualHeight > 0 ? element.ActualHeight : element.Height;
+        Canvas.SetLeft(overlay, left);
+        Canvas.SetTop(overlay, top);
+        overlay.Width = element.ActualWidth > 0 ? element.ActualWidth : element.Width;
+        overlay.Height = element.ActualHeight > 0 ? element.ActualHeight : element.Height;
+    }
+
+    /// <summary>Обновить позиции всех оверлейных бордеров (при групповом перетаскивании).</summary>
+    private void UpdateAllSelectionOverlayPositions()
+    {
+        foreach (var kvp in _selectionOverlays)
+        {
+            if (_elementMap.TryGetValue(kvp.Key, out var element))
+            {
+                var overlay = kvp.Value;
+                var left = Canvas.GetLeft(element);
+                var top = Canvas.GetTop(element);
+                Canvas.SetLeft(overlay, left);
+                Canvas.SetTop(overlay, top);
+                overlay.Width = element.ActualWidth > 0 ? element.ActualWidth : element.Width;
+                overlay.Height = element.ActualHeight > 0 ? element.ActualHeight : element.Height;
+            }
+        }
     }
 
     private void ImageElement_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
@@ -1550,6 +1580,85 @@ public partial class BoardWindow : Window
 
     #region Обработчики окна
 
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        _hwndSource = PresentationSource.FromVisual(this) as HwndSource;
+        if (_hwndSource != null)
+        {
+            _hwndSource.AddHook(WndProcHook);
+        }
+    }
+
+    /// <summary>
+    /// Win32 WndProc хук — обрабатывает WM_NCHITTEST для ресайза окна за углы и рёбра.
+    /// </summary>
+    private IntPtr WndProcHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg == WM_NCHITTEST)
+        {
+            // Извлекаем координаты мыши из lParam (экранные координаты)
+            int x = (short)((lParam.ToInt64() >> 0) & 0xFFFF);
+            int y = (short)((lParam.ToInt64() >> 16) & 0xFFFF);
+
+            // Конвертируем экранные координаты в координаты окна
+            var point = PointFromScreen(new Point(x, y));
+
+            // Определяем зону
+            double w = ActualWidth;
+            double h = ActualHeight;
+            int grip = ResizeGripSize;
+
+            bool isTop = point.Y < grip;
+            bool isBottom = point.Y > h - grip;
+            bool isLeft = point.X < grip;
+            bool isRight = point.X > w - grip;
+
+            if (isTop && isLeft)
+            {
+                handled = true;
+                return (IntPtr)HTTOPLEFT;
+            }
+            if (isTop && isRight)
+            {
+                handled = true;
+                return (IntPtr)HTTOPRIGHT;
+            }
+            if (isBottom && isLeft)
+            {
+                handled = true;
+                return (IntPtr)HTBOTTOMLEFT;
+            }
+            if (isBottom && isRight)
+            {
+                handled = true;
+                return (IntPtr)HTBOTTOMRIGHT;
+            }
+            if (isTop)
+            {
+                handled = true;
+                return (IntPtr)HTTOP;
+            }
+            if (isBottom)
+            {
+                handled = true;
+                return (IntPtr)HTBOTTOM;
+            }
+            if (isLeft)
+            {
+                handled = true;
+                return (IntPtr)HTLEFT;
+            }
+            if (isRight)
+            {
+                handled = true;
+                return (IntPtr)HTRIGHT;
+            }
+        }
+
+        return IntPtr.Zero;
+    }
+
     private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ChangedButton == MouseButton.Left)
@@ -1583,7 +1692,7 @@ public partial class BoardWindow : Window
             Top = _normalBounds.Y;
             Width = _normalBounds.Width;
             Height = _normalBounds.Height;
-            MaximizeButton.Content = "⊕";
+            MaximizeButton.Content = new FontAwesome.WPF.ImageAwesome { Icon = FontAwesome.WPF.FontAwesomeIcon.Expand, Width = 14, Height = 14, Foreground = new SolidColorBrush(Color.FromRgb(0xCC, 0xCC, 0xCC)) };
             MaximizeButton.ToolTip = "Развернуть во весь экран";
             _isMaximized = false;
         }
@@ -1596,7 +1705,7 @@ public partial class BoardWindow : Window
             Top = 0;
             Width = SystemParameters.PrimaryScreenWidth;
             Height = SystemParameters.PrimaryScreenHeight;
-            MaximizeButton.Content = "⊖";
+            MaximizeButton.Content = new FontAwesome.WPF.ImageAwesome { Icon = FontAwesome.WPF.FontAwesomeIcon.Compress, Width = 14, Height = 14, Foreground = new SolidColorBrush(Color.FromRgb(0xCC, 0xCC, 0xCC)) };
             MaximizeButton.ToolTip = "Восстановить размер";
             _isMaximized = true;
         }
@@ -1630,9 +1739,13 @@ public partial class BoardWindow : Window
 
     private void RefreshPinnedButtonState()
     {
-        PinnedButton.Foreground = Topmost
-            ? new SolidColorBrush(Color.FromRgb(62, 62, 66))
-            : new SolidColorBrush(Color.FromRgb(255, 255, 255));
+        var icon = PinnedButton.Content as FontAwesome.WPF.ImageAwesome;
+        if (icon != null)
+        {
+            icon.Foreground = Topmost
+                ? new SolidColorBrush(Color.FromRgb(255, 215, 0))   // Золотой при закреплении
+                : new SolidColorBrush(Color.FromRgb(204, 204, 204)); // Стандартный серый
+        }
     }
 
     /// <summary>
@@ -1659,6 +1772,7 @@ public partial class BoardWindow : Window
         SaveBoard();
         Properties.Settings.Default.BoardWindowWidth = Width;
         Properties.Settings.Default.BoardHeight = Height;
+        Properties.Settings.Default.TopmostTextBoxWindow = Topmost;
         Properties.Settings.Default.Save();
         base.OnClosing(e);
     }

@@ -3,9 +3,10 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:d="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:fa="clr-namespace:FontAwesome.WPF;assembly=FontAwesome.WPF"
         mc:Ignorable="d"
         Title="Memo Board" Height="700" Width="1000" MinWidth="400" MinHeight="300"
-        WindowStyle="None" AllowsTransparency="True" Background="#1e1e1e"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Topmost="True" ShowInTaskbar="True"
         WindowStartupLocation="CenterScreen"
         Icon="logo.ico">
@@ -180,142 +181,121 @@
                       ResizeBorderThickness="5"/>
     </WindowChrome.WindowChrome>
 
-    <Grid>
-        <!-- Тулбар -->
-        <Border x:Name="ToolbarBorder"
-                Background="#252526"
-                BorderBrush="#1c1c1c"
-                BorderThickness="0,0,0,1"
-                Height="40"
-                VerticalAlignment="Top"
-                Panel.ZIndex="100"
-                WindowChrome.IsHitTestVisibleInChrome="True"
-                MouseDown="TitleBar_MouseDown">
-            <Grid>
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
-                    <!-- Добавить текст -->
-                    <Button Content="𝐓"
-                            Style="{StaticResource ToolbarButtonStyle}"
-                            ToolTip="Добавить текстовый блок (T)"
-                            Click="AddTextButton_Click"/>
-                    
-                    <!-- Вставить изображение -->
-                    <Button Content="🖼"
-                            Style="{StaticResource ToolbarButtonStyle}"
-                            ToolTip="Вставить изображение (Ctrl+V)"
-                            Click="AddImageButton_Click"/>
+    <Border BorderBrush="#2B2B2B" BorderThickness="1" Background="#1e1e1e">
+        <Border.Effect>
+            <DropShadowEffect Color="Black" BlurRadius="10" ShadowDepth="2" Opacity="0.5"/>
+        </Border.Effect>
+        <Grid>
+            <!-- Тулбар -->
+            <Border x:Name="ToolbarBorder"
+                    Background="#252526"
+                    BorderBrush="#1c1c1c"
+                    BorderThickness="0,0,0,1"
+                    Height="40"
+                    VerticalAlignment="Top"
+                    Panel.ZIndex="100"
+                    WindowChrome.IsHitTestVisibleInChrome="True"
+                    MouseDown="TitleBar_MouseDown">
+                <Grid>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
+                        <!-- Добавить текст -->
+                        <Button Style="{StaticResource ToolbarButtonStyle}"
+                                ToolTip="Добавить текстовый блок (T)"
+                                Click="AddTextButton_Click">
+                            <fa:ImageAwesome Icon="Font" Width="14" Height="14" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                        </Button>
+                        
+                        <!-- Вставить изображение -->
+                        <Button Style="{StaticResource ToolbarButtonStyle}"
+                                ToolTip="Вставить изображение (Ctrl+V)"
+                                Click="AddImageButton_Click">
+                            <fa:ImageAwesome Icon="Image" Width="14" Height="14" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                        </Button>
 
-                    <!-- Кисть -->
-                    <Button x:Name="BrushButton"
-                            Content="✏"
-                            Style="{StaticResource ToolbarButtonStyle}"
-                            ToolTip="Кисть (B)"
-                            Click="BrushButton_Click"/>
+                        <!-- Кисть -->
+                        <Button x:Name="BrushButton"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                ToolTip="Кисть (B)"
+                                Click="BrushButton_Click">
+                            <fa:ImageAwesome Icon="PaintBrush" Width="14" Height="14" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                        </Button>
 
-                    <!-- Удалить выбранное -->
-                    <Button Content="🗑"
-                            Style="{StaticResource ToolbarButtonStyle}"
-                            ToolTip="Удалить выбранное (Delete)"
-                            Click="DeleteButton_Click"/>
+                        <!-- Удалить выбранное -->
+                        <Button Style="{StaticResource ToolbarButtonStyle}"
+                                ToolTip="Удалить выбранное (Delete)"
+                                Click="DeleteButton_Click">
+                            <fa:ImageAwesome Icon="Trash" Width="14" Height="14" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                        </Button>
+                    </StackPanel>
 
-                    <!-- Сбросить зум -->
-                    <Button Content="🔄"
-                            Style="{StaticResource ToolbarButtonStyle}"
-                            ToolTip="Сбросить масштаб"
-                            Click="ResetZoom_Click"/>
-                </StackPanel>
+                    <!-- Зум индикатор -->
+                    <TextBlock x:Name="ZoomText"
+                               Text="100%"
+                               Foreground="#888888"
+                               FontSize="12"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Center"/>
 
-                <!-- Зум индикатор -->
-                <TextBlock x:Name="ZoomText"
-                           Text="100%"
-                           Foreground="#888888"
-                           FontSize="12"
-                           VerticalAlignment="Center"
-                           HorizontalAlignment="Center"/>
+                    <!-- Кнопки управления окном справа -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,10,0">
+                        <Button Style="{StaticResource ToolbarButtonStyle}"
+                                ToolTip="Настройки"
+                                Click="SettingsButton_Click">
+                            <fa:ImageAwesome Icon="Gear" Width="14" Height="14" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                        </Button>
 
-                <!-- Кнопки управления окном справа -->
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,10,0">
-                    <Button Content="⚙"
-                            Style="{StaticResource ToolbarButtonStyle}"
-                            ToolTip="Настройки"
-                            Click="SettingsButton_Click"/>
+                        <Button x:Name="PinnedButton"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                ToolTip="Закрепить поверх всех окон"
+                                Click="PinnedButton_Click">
+                            <fa:ImageAwesome Icon="ThumbTack" Width="14" Height="14" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                        </Button>
 
-                    <Button Content="📌"
-                            x:Name="PinnedButton"
-                            Style="{StaticResource ToolbarButtonStyle}"
-                            ToolTip="Закрепить поверх всех окон"
-                            Click="PinnedButton_Click"/>
-
-                    <Button Content="⊕"
-                            x:Name="MaximizeButton"
-                            Style="{StaticResource ToolbarButtonStyle}"
-                            ToolTip="Развернуть во весь экран"
-                            Click="MaximizeButton_Click"/>
-                    
-                    <Button Content="✕"
-                            Style="{StaticResource CloseButtonStyle}"
-                            ToolTip="Закрыть"
-                            Click="CloseButton_Click"/>
-                </StackPanel>
-            </Grid>
-        </Border>
-
-        <!-- Область доски -->
-        <Border Margin="0,40,0,0"
-                Background="#1e1e1e">
-            <ScrollViewer x:Name="BoardScrollViewer"
-                          HorizontalScrollBarVisibility="Auto"
-                          VerticalScrollBarVisibility="Auto"
-                          PanningMode="Both"
-                          Background="#1e1e1e">
-                <ScrollViewer.Template>
-                    <ControlTemplate TargetType="ScrollViewer">
-                        <Grid Background="#1e1e1e">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <ScrollContentPresenter Grid.Column="0" Grid.Row="0" Grid.ColumnSpan="2" Grid.RowSpan="2"/>
-                            <ScrollBar x:Name="PART_VerticalScrollBar"
-                                       Grid.Column="2" Grid.Row="0" Grid.RowSpan="2"
-                                       Orientation="Vertical"
-                                       Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"
-                                       Style="{StaticResource CustomScrollBar}"/>
-                            <ScrollBar x:Name="PART_HorizontalScrollBar"
-                                       Grid.Column="0" Grid.ColumnSpan="2" Grid.Row="2"
-                                       Orientation="Horizontal"
-                                       Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}"
-                                       Style="{StaticResource CustomScrollBar}"/>
-                            <Rectangle Grid.Column="2" Grid.Row="2" Fill="#1e1e1e"/>
-                        </Grid>
-                    </ControlTemplate>
-                </ScrollViewer.Template>
-                <Grid x:Name="BoardContainer"
-                      Background="{StaticResource DotGridBrush}">
-                    <Grid.LayoutTransform>
-                        <ScaleTransform x:Name="BoardScaleTransform" ScaleX="1" ScaleY="1"/>
-                    </Grid.LayoutTransform>
-                    
-                    <Canvas x:Name="BoardCanvas"
-                            Background="Transparent"
-                            Focusable="True"
-                            AllowDrop="True"
-                            DragEnter="BoardCanvas_DragEnter"
-                            DragOver="BoardCanvas_DragOver"
-                            Drop="BoardCanvas_Drop"
-                            MouseWheel="BoardCanvas_MouseWheel"
-                            MouseDown="BoardCanvas_MouseDown"
-                            MouseRightButtonUp="BoardCanvas_MouseRightButtonUp">
-                        <!-- Сетка-фон (точки) -->
-                    </Canvas>
+                        <Button x:Name="MaximizeButton"
+                                Style="{StaticResource ToolbarButtonStyle}"
+                                ToolTip="Развернуть во весь экран"
+                                Click="MaximizeButton_Click">
+                            <fa:ImageAwesome Icon="Compress" Width="14" Height="14" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                        </Button>
+                        
+                        <Button Style="{StaticResource CloseButtonStyle}"
+                                ToolTip="Закрыть"
+                                Click="CloseButton_Click">
+                            <fa:ImageAwesome Icon="Times" Width="14" Height="14" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                        </Button>
+                    </StackPanel>
                 </Grid>
-            </ScrollViewer>
-        </Border>
-    </Grid>
+            </Border>
+
+            <!-- Область доски -->
+            <Border Margin="0,40,0,0"
+                    Background="#1e1e1e">
+                <ScrollViewer x:Name="BoardScrollViewer"
+                              HorizontalScrollBarVisibility="Disabled"
+                              VerticalScrollBarVisibility="Disabled"
+                              PanningMode="Both"
+                              Background="#1e1e1e">
+                    <Grid x:Name="BoardContainer"
+                          Background="{StaticResource DotGridBrush}">
+                        <Grid.LayoutTransform>
+                            <ScaleTransform x:Name="BoardScaleTransform" ScaleX="1" ScaleY="1"/>
+                        </Grid.LayoutTransform>
+                        
+                        <Canvas x:Name="BoardCanvas"
+                                Background="Transparent"
+                                Focusable="True"
+                                AllowDrop="True"
+                                DragEnter="BoardCanvas_DragEnter"
+                                DragOver="BoardCanvas_DragOver"
+                                Drop="BoardCanvas_Drop"
+                                MouseWheel="BoardCanvas_MouseWheel"
+                                MouseDown="BoardCanvas_MouseDown"
+                                MouseRightButtonUp="BoardCanvas_MouseRightButtonUp">
+                            <!-- Сетка-фон (точки) -->
+                        </Canvas>
+                    </Grid>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+    </Border>
 </Window>

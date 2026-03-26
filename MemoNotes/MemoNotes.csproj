@@ -19,12 +19,13 @@
         <Copyright>© 2024 Maxter</Copyright>
 
         <!-- Версия -->
-        <Version>1.0.0-beta3</Version>
-        <AssemblyVersion>1.0.0.0</AssemblyVersion>
-        <FileVersion>1.0.0.0</FileVersion>
+        <Version>2.0.4</Version>
+        <AssemblyVersion>2.0.3</AssemblyVersion>
+        <FileVersion>2.0.4</FileVersion>
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="FontAwesome.WPF" Version="4.7.0.9" />
         <PackageReference Include="System.Windows.Forms" Version="4.0.0" />
     </ItemGroup>
 

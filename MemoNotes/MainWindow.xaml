@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:enums="clr-namespace:MemoNotes.Enums"
+        xmlns:fa="clr-namespace:FontAwesome.WPF;assembly=FontAwesome.WPF"
         mc:Ignorable="d"
         Title="Настройки" Height="400" Width="400"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
@@ -194,7 +195,6 @@
                 <!-- Кнопка закрытия -->
                 <Button Height="20"
                         Width="20"
-                        Content="✕"
                         VerticalAlignment="Top"
                         HorizontalAlignment="Right"
                         Margin="0,3,5,0"
@@ -204,6 +204,7 @@
                         Foreground="White"
                         IsEnabled="True"
                         Click="CloseButton_Click">
+                    <fa:ImageAwesome Icon="Times" Width="12" Height="12" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
                             <Border x:Name="border"
@@ -234,13 +235,22 @@
                 </Button>
 
                 <!-- Заголовок -->
-                <TextBlock Text="⚙ Настройки"
-                           VerticalAlignment="Top"
-                           HorizontalAlignment="Left"
-                           Foreground="White"
-                           FontSize="14"
-                           FontWeight="SemiBold"
-                           Margin="12,6,0,0"/>
+                <StackPanel Orientation="Horizontal"
+                            VerticalAlignment="Top"
+                            HorizontalAlignment="Left"
+                            Margin="12,6,0,0">
+                    <fa:ImageAwesome Icon="Gear"
+                                     Foreground="White"
+                                     Width="14"
+                                     Height="14"
+                                     VerticalAlignment="Center"
+                                     Margin="0,0,4,0"/>
+                    <TextBlock Text="Настройки"
+                               Foreground="White"
+                               FontSize="14"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
 
                 <!-- Разделительная линия -->
                 <Border VerticalAlignment="Top"
