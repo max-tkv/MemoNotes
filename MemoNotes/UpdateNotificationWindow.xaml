@@ -1,0 +1,327 @@
+<Window x:Class="MemoNotes.UpdateNotificationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:fa="clr-namespace:FontAwesome.WPF;assembly=FontAwesome.WPF"
+        mc:Ignorable="d"
+        Title="Обновление MemoNotes" 
+        Height="420" Width="460"
+        MinHeight="300" MinWidth="380"
+        WindowStyle="None" 
+        AllowsTransparency="True" 
+        Background="Transparent"
+        WindowStartupLocation="CenterScreen"
+        ShowInTaskbar="True"
+        Topmost="True"
+        Icon="logo.ico">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome GlassFrameThickness="0"
+                      CaptionHeight="0"
+                      CornerRadius="0"
+                      ResizeBorderThickness="5"/>
+    </WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <Style x:Key="ScrollBarThumb" TargetType="{x:Type Thumb}">
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="OverridesDefaultStyle" Value="true"/>
+            <Setter Property="IsTabStop" Value="false"/>
+            <Setter Property="Focusable" Value="false"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Thumb}">
+                        <Border CornerRadius="2"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="0"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="CustomScrollBar" TargetType="ScrollBar">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Grid Background="Transparent">
+                            <Track Name="PART_Track" IsDirectionReversed="true">
+                                <Track.Thumb>
+                                    <Thumb Background="#3e3e42"
+                                           Width="8"
+                                           Style="{StaticResource ScrollBarThumb}"/>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Стиль для кнопки "Скачать" -->
+        <Style x:Key="DownloadButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#4ec9b0"/>
+            <Setter Property="Foreground" Value="#1e1e1e"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#5dd9c1"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Background" Value="#3e3e42"/>
+                                <Setter Property="Foreground" Value="#888"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Border x:Name="MainBorder"
+                Background="#262626"
+                BorderBrush="#1c1c1c"
+                BorderThickness="1"
+                MouseDown="TitleBar_MouseDown">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Заголовок с кнопкой закрытия -->
+                <Grid Grid.Row="0" Margin="0,0,0,4">
+                    <!-- Кнопка закрытия -->
+                    <Button Height="20"
+                            Width="20"
+                            VerticalAlignment="Top"
+                            HorizontalAlignment="Right"
+                            Margin="0,3,5,0"
+                            ClickMode="Release"
+                            Background="Transparent"
+                            BorderBrush="Transparent"
+                            Foreground="White"
+                            IsEnabled="True"
+                            Click="DismissButton_Click">
+                        <fa:ImageAwesome Icon="Times" Width="12" Height="12" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="border"
+                                        Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        Padding="0">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="border" Property="Background" Value="#e81123"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="BorderBrush" Value="Transparent"/>
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+
+                    <!-- Заголовок -->
+                    <StackPanel Orientation="Horizontal"
+                                VerticalAlignment="Top"
+                                HorizontalAlignment="Left"
+                                Margin="12,6,0,0">
+                        <fa:ImageAwesome Icon="ArrowUp"
+                                         Foreground="White"
+                                         Width="14"
+                                         Height="14"
+                                         VerticalAlignment="Center"
+                                         Margin="0,0,4,0"/>
+                        <TextBlock Text="Доступно обновление"
+                                   Foreground="White"
+                                   FontSize="14"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center"/>
+                        <TextBlock x:Name="VersionTextBlock" 
+                                   Text="" 
+                                   Foreground="#4ec9b0" 
+                                   FontSize="14" 
+                                   FontWeight="SemiBold"
+                                   Margin="6,0,0,0"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- Разделительная линия под заголовком -->
+                    <Border VerticalAlignment="Bottom"
+                            Height="1"
+                            Background="#3e3e42"
+                            Margin="12,0,12,0"/>
+                </Grid>
+
+                <!-- Содержимое -->
+                <Grid Grid.Row="1" Margin="12,12,12,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Подзаголовок -->
+                    <TextBlock Grid.Row="0"
+                               Text="Что нового:"
+                               FontSize="13"
+                               Foreground="#888888"
+                               Margin="0,0,0,8"/>
+
+                    <!-- Описание релиза -->
+                    <ScrollViewer Grid.Row="1" 
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <ScrollViewer.Resources>
+                            <Style TargetType="ScrollBar" BasedOn="{StaticResource CustomScrollBar}"/>
+                        </ScrollViewer.Resources>
+                        <TextBlock x:Name="ReleaseNotesTextBlock" 
+                                   Text="" 
+                                   Foreground="#cccccc" 
+                                   FontSize="13" 
+                                   LineHeight="20"
+                                   TextWrapping="Wrap"/>
+                    </ScrollViewer>
+                </Grid>
+
+                <!-- Нижняя панель с разделителем и кнопками -->
+                <Grid Grid.Row="2">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Разделительная линия над кнопками -->
+                    <Border Grid.Row="0"
+                            Height="1"
+                            Background="#3e3e42"
+                            Margin="12,0,12,0"/>
+
+                    <!-- Прогресс скачивания -->
+                    <Grid Grid.Row="1" Margin="12,12,12,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Текст прогресса -->
+                        <TextBlock x:Name="ProgressTextBlock"
+                                   Grid.Row="0"
+                                   Text=""
+                                   Foreground="#888888"
+                                   FontSize="12"
+                                   Visibility="Collapsed"
+                                   Margin="0,0,0,6"/>
+
+                        <!-- ProgressBar -->
+                        <ProgressBar x:Name="DownloadProgressBar"
+                                     Grid.Row="1"
+                                     Height="4"
+                                     Minimum="0"
+                                     Maximum="100"
+                                     Value="0"
+                                     Visibility="Collapsed"
+                                     Margin="0,0,0,12">
+                            <ProgressBar.Style>
+                                <Style TargetType="ProgressBar">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ProgressBar">
+                                                <Border Background="#3e3e42" CornerRadius="2">
+                                                    <Border x:Name="PART_Track"/>
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ProgressBar.Style>
+                        </ProgressBar>
+
+                        <!-- Кнопки -->
+                        <Grid Grid.Row="1" Margin="0,20,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Кнопка "Напомнить позже" -->
+                            <Button Grid.Column="0"
+                                    x:Name="DismissForDayButton"
+                                    Content="Напомнить позже (1 день)" 
+                                    Height="32"
+                                    HorizontalAlignment="Left"
+                                    Padding="12,0"
+                                    Background="#3e3e42"
+                                    Foreground="#cccccc"
+                                    BorderBrush="#1c1c1c"
+                                    BorderThickness="1"
+                                    FontSize="13"
+                                    Click="DismissForDayButton_Click"
+                                    Cursor="Hand"/>
+
+                            <!-- Кнопки справа -->
+                            <StackPanel Grid.Column="1" 
+                                        Orientation="Horizontal" 
+                                        HorizontalAlignment="Right">
+                                <!-- Кнопка "GitHub" -->
+                                <Button x:Name="OpenOnGitHubButton"
+                                        Content="GitHub" 
+                                        Height="32"
+                                        Padding="12,0"
+                                        Margin="0,0,8,0"
+                                        HorizontalContentAlignment="Center"
+                                        Background="#3e3e42"
+                                        Foreground="#cccccc"
+                                        BorderBrush="#1c1c1c"
+                                        BorderThickness="1"
+                                        FontSize="13"
+                                        Click="OpenOnGitHubButton_Click"
+                                        Cursor="Hand"/>
+
+                                <!-- Кнопка "Скачать" -->
+                                <Button x:Name="DownloadButton"
+                                        Content="Скачать" 
+                                        Height="32"
+                                        Padding="30,0"
+                                        Style="{StaticResource DownloadButtonStyle}"
+                                        FontWeight="SemiBold"
+                                        FontSize="13"
+                                        Foreground="#ffffff"
+                                        Click="DownloadButton_Click"
+                                        Cursor="Hand"/>
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
