@@ -12,16 +12,16 @@
 
         <!-- Основные метаданные приложения -->
         <Title>MemoNotes</Title>
-        <Description>Fastest notes</Description>
-        <Company>Maxter</Company>
+        <Description>MemoNotes — это легкое и быстрое приложение для заметок для Windows, превращённое в интерактивную доску по аналогии с Miro. Размещайте текстовые блоки и изображения на бесконечном canvas, перетаскивайте их, масштабируйте доску и работайте так, как удобно вам. Приложение открывается одним кликом в углу экрана и автоматически сохраняет всю вашу работу.</Description>
+        <Company>Darkuty Studio</Company>
         <Product>MemoNotes</Product>
-        <Authors>Maxter</Authors>
-        <Copyright>© 2024 Maxter</Copyright>
+        <Authors>Terekhov M.</Authors>
+        <Copyright>© 2026 Darkuty Studio</Copyright>
 
         <!-- Версия -->
-        <Version>2.0.4</Version>
-        <AssemblyVersion>2.0.3</AssemblyVersion>
-        <FileVersion>2.0.4</FileVersion>
+        <Version>2.0.5</Version>
+        <AssemblyVersion>2.0.5</AssemblyVersion>
+        <FileVersion>2.0.5</FileVersion>
     </PropertyGroup>
 
     <ItemGroup>
