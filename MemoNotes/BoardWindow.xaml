@@ -267,38 +267,10 @@
         <Border Margin="0,40,0,0"
                 Background="#1e1e1e">
             <ScrollViewer x:Name="BoardScrollViewer"
-                          HorizontalScrollBarVisibility="Auto"
-                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Disabled"
                           PanningMode="Both"
                           Background="#1e1e1e">
-                <ScrollViewer.Template>
-                    <ControlTemplate TargetType="ScrollViewer">
-                        <Grid Background="#1e1e1e">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <ScrollContentPresenter Grid.Column="0" Grid.Row="0" Grid.ColumnSpan="2" Grid.RowSpan="2"/>
-                            <ScrollBar x:Name="PART_VerticalScrollBar"
-                                       Grid.Column="2" Grid.Row="0" Grid.RowSpan="2"
-                                       Orientation="Vertical"
-                                       Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"
-                                       Style="{StaticResource CustomScrollBar}"/>
-                            <ScrollBar x:Name="PART_HorizontalScrollBar"
-                                       Grid.Column="0" Grid.ColumnSpan="2" Grid.Row="2"
-                                       Orientation="Horizontal"
-                                       Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}"
-                                       Style="{StaticResource CustomScrollBar}"/>
-                            <Rectangle Grid.Column="2" Grid.Row="2" Fill="#1e1e1e"/>
-                        </Grid>
-                    </ControlTemplate>
-                </ScrollViewer.Template>
                 <Grid x:Name="BoardContainer"
                       Background="{StaticResource DotGridBrush}">
                     <Grid.LayoutTransform>
