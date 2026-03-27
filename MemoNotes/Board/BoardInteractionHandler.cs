@@ -1098,9 +1098,12 @@ public class BoardInteractionHandler
 
     public void HandlePreviewKeyDown(KeyEventArgs e)
     {
+        if (e.IsRepeat)
+            return;
+
         var isCtrl = (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control;
 
-        Logger.Debug<BoardInteractionHandler>($"KeyDown: key={e.Key}, ctrl={isCtrl}");
+        Logger.Debug<BoardInteractionHandler>($"KeyDown: key={e.Key}, ctrl={isCtrl}, focused={Keyboard.FocusedElement?.GetType().Name ?? "null"}");
 
         // Ctrl+Z — Отмена
         if (e.Key == Key.Z && isCtrl && !Keyboard.IsKeyDown(Key.LeftShift) && !Keyboard.IsKeyDown(Key.RightShift))
@@ -1202,6 +1205,15 @@ public class BoardInteractionHandler
                 _drawingHandler.ToggleDrawingMode();
             }
             Keyboard.Focus(_canvas);
+            e.Handled = true;
+            return;
+        }
+
+        // Если фокус не в TextBox — блокируем передачу события дальше,
+        // чтобы не перехватывался фокус и MouseDown продолжал работать
+        if (Keyboard.FocusedElement is not TextBox)
+        {
+            e.Handled = true;
         }
     }
 
