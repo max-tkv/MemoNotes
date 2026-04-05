@@ -46,8 +46,10 @@ public partial class OAuthWindow : Window
             WebViewContainer.Children.Add(_webView);
             _webView.Visibility = Visibility.Collapsed;
             
-            // Инициализируем WebView2
-            await _webView.EnsureCoreWebView2Async(null);
+            // Инициализируем WebView2 с указанием пользовательской директории данных
+            var env = await CoreWebView2Environment.CreateAsync(null,
+                System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MemoNotes", "WebView2Data"));
+            await _webView.EnsureCoreWebView2Async(env);
             
             _webView.CoreWebView2.NavigationCompleted += CoreWebView2_NavigationCompleted;
             
