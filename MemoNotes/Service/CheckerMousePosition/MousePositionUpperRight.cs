@@ -11,7 +11,7 @@ public class MousePositionUpperRight : MousePosition
     /// <summary>
     /// Граница.
     /// </summary>
-    private const double CornerMargin = 30;
+    private const double CornerMargin = 10;
 
     /// <inheritdoc />
     public override bool CursorIsInCorrectPlace(System.Windows.Point mousePosition)

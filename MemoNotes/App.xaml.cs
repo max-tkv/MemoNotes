@@ -3,6 +3,7 @@ using System.Data;
 using System.Reflection;
 using System.Windows;
 using MemoNotes.Properties;
+using MemoNotes.Service.CloudSync;
 using MemoNotes.Service.UpdateChecker;
 using Application = System.Windows.Application;
 
@@ -16,6 +17,9 @@ public partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // Инициализация облачной синхронизации
+        CloudSyncManager.Initialize();
 
         // Проверка обновлений в фоновом потоке
         _ = CheckForUpdatesAsync();
