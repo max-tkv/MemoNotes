@@ -59,6 +59,22 @@ public static class Logger
     public static void Error<T>(Exception ex) where T : class
         => Log(LogLevel.Error, typeof(T).Name, $"Exception: {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}");
 
+    /// <summary>Негенерические перегрузки для использования в статических классах.</summary>
+    public static void Debug(string source, string message)
+        => Log(LogLevel.Debug, source, message);
+
+    public static void Info(string source, string message)
+        => Log(LogLevel.Info, source, message);
+
+    public static void Warn(string source, string message)
+        => Log(LogLevel.Warn, source, message);
+
+    public static void Error(string source, string message, Exception? ex = null)
+        => Log(LogLevel.Error, source, ex != null ? $"{message} | Exception: {ex}" : message);
+
+    public static void Error(string source, Exception ex)
+        => Log(LogLevel.Error, source, $"Exception: {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}");
+
     #endregion
 
     #region Core

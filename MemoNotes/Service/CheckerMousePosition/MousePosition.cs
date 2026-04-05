@@ -10,12 +10,12 @@ public abstract class MousePosition
     /// <summary>
     /// Ширина окна/кнопки.
     /// </summary>
-    protected const double PopupButtonWindowWidth = 80;
+    protected const double PopupButtonWindowWidth = 54;
     
     /// <summary>
     /// Высота окна/кнопки.
     /// </summary>
-    protected const double PopupButtonWindowsHeight = 30;
+    protected const double PopupButtonWindowsHeight = 54;
 
     /// <summary>
     /// Проверить позицию указателя мыши.

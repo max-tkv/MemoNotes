@@ -1,0 +1,112 @@
+<Window x:Class="MemoNotes.OAuthWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:fa="clr-namespace:FontAwesome.WPF;assembly=FontAwesome.WPF"
+        Title="Авторизация Яндекс Диск"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        Topmost="True"
+        Height="520"
+        Width="480"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize">
+    
+    <Border Background="#2d2d30"
+            BorderBrush="#1c1c1c"
+            BorderThickness="1"
+            CornerRadius="8"
+            Margin="10">
+        
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            
+            <!-- Заголовок окна -->
+            <Grid Grid.Row="0" Margin="16,12,16,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <fa:ImageAwesome Icon="SignIn"
+                                     Foreground="#4a9eff"
+                                     Width="16"
+                                     Height="16"
+                                     VerticalAlignment="Center"
+                                     Margin="0,0,8,0"/>
+                    <TextBlock Text="Авторизация Яндекс Диск"
+                               Foreground="White"
+                               FontSize="14"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+                
+                <!-- Кнопка закрытия -->
+                <Button Grid.Column="1"
+                        Height="20" Width="20"
+                        Click="CloseButton_Click"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        Foreground="White"
+                        VerticalAlignment="Center">
+                    <fa:ImageAwesome Icon="Times" Width="12" Height="12"/>
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="border" Background="{TemplateBinding Background}" Padding="0">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="border" Property="Background" Value="#e81123"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+            </Grid>
+            
+            <!-- Разделитель -->
+            <Border Grid.Row="1" Height="1" Background="#3e3e42"/>
+            
+            <!-- Контейнер для WebView2 (создаётся в code-behind) и индикатора загрузки -->
+            <Grid x:Name="WebViewContainer" Grid.Row="2">
+                <!-- Индикатор загрузки -->
+                <StackPanel x:Name="LoadingPanel"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center">
+                    <fa:ImageAwesome Icon="Spinner"
+                                     Foreground="#4a9eff"
+                                     Width="32"
+                                     Height="32"
+                                     HorizontalAlignment="Center"
+                             Margin="0,0,0,10">
+                        <fa:ImageAwesome.RenderTransform>
+                            <RotateTransform x:Name="SpinnerRotate" CenterX="16" CenterY="16"/>
+                        </fa:ImageAwesome.RenderTransform>
+                        <fa:ImageAwesome.Triggers>
+                            <EventTrigger RoutedEvent="Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard RepeatBehavior="Forever">
+                                        <DoubleAnimation Storyboard.TargetName="SpinnerRotate"
+                                                         Storyboard.TargetProperty="Angle"
+                                                         From="0" To="360"
+                                                         Duration="0:0:1"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </fa:ImageAwesome.Triggers>
+                    </fa:ImageAwesome>
+                    <TextBlock Text="Загрузка страницы авторизации..."
+                               FontSize="12" Foreground="#888888"
+                               HorizontalAlignment="Center"/>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

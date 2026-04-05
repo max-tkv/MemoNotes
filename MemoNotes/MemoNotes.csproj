@@ -26,6 +26,7 @@
 
     <ItemGroup>
         <PackageReference Include="FontAwesome.WPF" Version="4.7.0.9" />
+        <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3856.49" />
         <PackageReference Include="System.Windows.Forms" Version="4.0.0" />
     </ItemGroup>
 

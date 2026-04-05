@@ -4,14 +4,68 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         mc:Ignorable="d"
-        Title="PopupButtonWindow" Height="30" Width="80"
-        WindowStyle="None" AllowsTransparency="True" Background="#262626"
+        Title="PopupButtonWindow" Height="54" Width="54"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Topmost="True" ShowInTaskbar="False">
-    <Grid>
-        <TextBlock x:Name="timerTextBlock" 
-                   HorizontalAlignment="Center" 
-                   VerticalAlignment="Center"
-                   FontWeight="Bold" 
-                   Foreground="White" />
+    
+    <Window.Resources>
+        <!-- Градиент для прогресс-бара -->
+        <LinearGradientBrush x:Key="ProgressGradient" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#6366F1" Offset="0"/>
+            <GradientStop Color="#8B5CF6" Offset="0.5"/>
+            <GradientStop Color="#A78BFA" Offset="1"/>
+        </LinearGradientBrush>
+
+        <!-- Glow эффект для прогресса -->
+        <DropShadowEffect x:Key="ProgressGlow" Color="#8B5CF6" ShadowDepth="0" BlurRadius="8" Opacity="0.6"/>
+    </Window.Resources>
+    
+    <Grid x:Name="RootGrid" RenderTransformOrigin="0.5 0.5">
+        <Grid.RenderTransform>
+            <ScaleTransform x:Name="RootScale" ScaleX="0" ScaleY="0"/>
+        </Grid.RenderTransform>
+        
+        <!-- Фоновый круг с эффектом матового стекла -->
+        <Border x:Name="BackgroundBorder"
+                Width="44" Height="44"
+                CornerRadius="22"
+                Background="#1A1A2E"
+                Opacity="0.85"
+                BorderBrush="#2D2D44"
+                BorderThickness="1">
+            <Border.Effect>
+                <DropShadowEffect Color="#000000" ShadowDepth="2" BlurRadius="10" Opacity="0.5"/>
+            </Border.Effect>
+        </Border>
+
+        <!-- Фоновая трасса прогресса (неактивная часть) -->
+        <Ellipse x:Name="ProgressTrack"
+                 Width="36" Height="36"
+                 Stroke="#2D2D44"
+                 StrokeThickness="3"
+                 Fill="Transparent"/>
+
+        <!-- Круговой прогресс-бар -->
+        <Ellipse x:Name="ProgressRing"
+                 Width="36" Height="36"
+                 Stroke="{StaticResource ProgressGradient}"
+                 StrokeThickness="3"
+                 Fill="Transparent"
+                 StrokeDashArray="113.1"
+                 StrokeDashOffset="113.1"
+                 RenderTransformOrigin="0.5 0.5"
+                 Effect="{StaticResource ProgressGlow}">
+            <Ellipse.RenderTransform>
+                <RotateTransform x:Name="ProgressRotation" Angle="-90"/>
+            </Ellipse.RenderTransform>
+        </Ellipse>
+
+        <!-- Иконка записки в центре -->
+        <Path x:Name="IconPath"
+              Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"
+              Fill="#A78BFA"
+              Width="16" Height="16"
+              Stretch="Uniform"
+              Opacity="0.9"/>
     </Grid>
 </Window>

@@ -3,6 +3,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using MemoNotes.Board;
+using MemoNotes.Service.CloudSync;
 using MemoNotes.Service.Logging;
 using Application = System.Windows.Application;
 using Color = System.Windows.Media.Color;
@@ -14,7 +15,6 @@ namespace MemoNotes;
 
 public partial class BoardWindow : Window
 {
-    private const string LogSource = "BoardWindow";
     private BoardState _state = null!;
     private BoardElementFactory _factory = null!;
     private BoardPersistence _persistence = null!;
@@ -22,6 +22,7 @@ public partial class BoardWindow : Window
     private DrawingModeHandler _drawingHandler = null!;
     private BoardInteractionHandler _interaction = null!;
     private WindowChromeBehavior _chromeBehavior = null!;
+    private volatile bool _isBoardLoaded;
 
     public BoardWindow()
     {
@@ -50,9 +51,15 @@ public partial class BoardWindow : Window
         // Подключаем обработчики элементов
         WireFactoryCallbacks();
 
-        // Загрузка доски
-        var loadResult = _persistence.LoadBoard(BoardScrollViewer, BoardScaleTransform, ZoomText);
-        Logger.Info<BoardWindow>($"Загрузка доски: результат={loadResult}");
+        // Подписка на события облака
+        CloudSyncManager.CloudConnected += OnCloudConnected;
+        CloudSyncManager.CloudDataUpdated += OnCloudDataUpdated;
+        CloudSyncManager.SyncStarted += OnSyncStarted;
+        CloudSyncManager.SyncCompleted += OnSyncCompleted;
+
+        // Загрузка доски: сначала локальная (быстро), потом фоновая синхронизация с облаком
+        LoadBoardLocal();
+        _ = SyncBoardFromCloudAsync();
 
         // События
         PreviewKeyDown += BoardWindow_PreviewKeyDown;
@@ -64,23 +71,29 @@ public partial class BoardWindow : Window
         BoardScrollViewer.SizeChanged += (s, e) => UpdateCanvasSize();
         UpdateCanvasSize();
 
-        // Если нет сохранённых данных — скроллим в центр
-        if (loadResult == BoardPersistence.LoadResult.FileNotExists)
-        {
-            Logger.Info<BoardWindow>("Файл доски не найден, скролл в центр");
-            Dispatcher.BeginInvoke(() =>
-            {
-                BoardScrollViewer.ScrollToHorizontalOffset((BoardCanvas.Width * _state.CurrentZoom - BoardScrollViewer.ViewportWidth) / 2);
-                BoardScrollViewer.ScrollToVerticalOffset((BoardCanvas.Height * _state.CurrentZoom - BoardScrollViewer.ViewportHeight) / 2);
-            }, System.Windows.Threading.DispatcherPriority.Loaded);
-        }
+        // Скролл в центр выполняется внутри LoadBoardAsync при необходимости
 
         // Инициализация поведения окна (Win32 ресайз)
         _chromeBehavior = new WindowChromeBehavior(this, MaximizeButton);
         _chromeBehavior.OnWindowClosing = () =>
         {
             Logger.Info<BoardWindow>("Окно закрывается, сохранение...");
-            SaveBoard();
+
+            // Отписка от событий облака (предотвращает утечку и вызовы на закрытом окне)
+            CloudSyncManager.CloudConnected -= OnCloudConnected;
+            CloudSyncManager.CloudDataUpdated -= OnCloudDataUpdated;
+            CloudSyncManager.SyncStarted -= OnSyncStarted;
+            CloudSyncManager.SyncCompleted -= OnSyncCompleted;
+
+            // Не сохраняем пустую доску, если загрузка ещё не завершена
+            if (!_isBoardLoaded)
+            {
+                Logger.Warn<BoardWindow>("Окно закрывается до завершения загрузки доски — сохранение пропущено");
+            }
+            else
+            {
+                _persistence.SaveBoardImmediate(BoardScrollViewer);
+            }
             Properties.Settings.Default.BoardWindowWidth = Width;
             Properties.Settings.Default.BoardHeight = Height;
             Properties.Settings.Default.TopmostTextBoxWindow = Topmost;
@@ -127,12 +140,129 @@ public partial class BoardWindow : Window
 
     #endregion
 
-    #region Сохранение
+    #region Сохранение и загрузка
 
     private void SaveBoard()
     {
         Logger.Info<BoardWindow>("Вызов SaveBoard");
         _persistence.SaveBoard(BoardScrollViewer);
+    }
+
+    /// <summary>
+    /// Синхронная загрузка доски из локального файла (без обращения к облаку).
+    /// Оконьо открывается мгновенно.
+    /// </summary>
+    private void LoadBoardLocal()
+    {
+        var loadResult = _persistence.LoadBoard(BoardScrollViewer, BoardScaleTransform, ZoomText);
+        _isBoardLoaded = true;
+        Logger.Info<BoardWindow>($"Локальная загрузка доски: результат={loadResult}");
+
+        if (loadResult == BoardPersistence.LoadResult.FileNotExists)
+        {
+            ScrollToCenter();
+        }
+    }
+
+    /// <summary>
+    /// Фоновая синхронизация доски с облаком после локальной загрузки.
+    /// Показывает индикатор синхронизации. Если в облаке более новая версия — перезагружает доску.
+    /// </summary>
+    private async Task SyncBoardFromCloudAsync()
+    {
+        if (!CloudSyncManager.IsEnabled)
+            return;
+
+        try
+        {
+            var cloudData = await CloudSyncManager.SyncOnLoadAsync(BoardPersistence.DataFilePath);
+
+            if (cloudData != null && !IsLoaded)
+                return; // Окно уже закрыто
+
+            if (cloudData != null)
+            {
+                Logger.Info<BoardWindow>("Облако: загружена более новая версия — перезагрузка доски");
+                Dispatcher.Invoke(() =>
+                {
+                    _state.BoardItems.Clear();
+                    BoardCanvas.Children.Clear();
+                    var loadResult = _persistence.LoadFromJson(
+                        cloudData.Content, BoardScrollViewer, BoardScaleTransform, ZoomText);
+                    Logger.Info<BoardWindow>($"Перезагрузка из облака: результат={loadResult}");
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn<BoardWindow>($"Ошибка фоновой синхронизации: {ex.Message}");
+        }
+    }
+
+    private void ScrollToCenter()
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            BoardScrollViewer.ScrollToHorizontalOffset((BoardCanvas.Width * _state.CurrentZoom - BoardScrollViewer.ViewportWidth) / 2);
+            BoardScrollViewer.ScrollToVerticalOffset((BoardCanvas.Height * _state.CurrentZoom - BoardScrollViewer.ViewportHeight) / 2);
+        }, System.Windows.Threading.DispatcherPriority.Loaded);
+    }
+
+    private void OnSyncStarted() => SetSyncIndicatorVisible(true);
+    private void OnSyncCompleted() => SetSyncIndicatorVisible(false);
+
+    private void SetSyncIndicatorVisible(bool visible)
+    {
+        Dispatcher.BeginInvoke(() =>
+        {
+            SyncIndicator.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        });
+    }
+
+    /// <summary>
+    /// Обработчик подключения облака — перезагружает доску с облачными данными.
+    /// </summary>
+    private async void OnCloudConnected()
+    {
+        Logger.Info<BoardWindow>("Облако подключено — перезагрузка доски с синхронизацией");
+        try
+        {
+            var cloudData = await CloudSyncManager.SyncOnLoadAsync(BoardPersistence.DataFilePath);
+            if (cloudData != null && IsLoaded)
+            {
+                Logger.Info<BoardWindow>("Облако: загружена более новая версия — перезагрузка доски");
+                _state.BoardItems.Clear();
+                BoardCanvas.Children.Clear();
+                _persistence.LoadFromJson(cloudData.Content, BoardScrollViewer, BoardScaleTransform, ZoomText);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn<BoardWindow>($"Ошибка перезагрузки при подключении облака: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Обработчик обновления данных в облаке (polling) — перезагружает доску.
+    /// </summary>
+    private async void OnCloudDataUpdated()
+    {
+        if (!IsLoaded) return;
+        Logger.Info<BoardWindow>("Облако: данные обновлены — перезагрузка доски");
+        try
+        {
+            var cloudData = await CloudSyncManager.SyncOnLoadAsync(BoardPersistence.DataFilePath);
+            if (cloudData != null && IsLoaded)
+            {
+                _state.BoardItems.Clear();
+                BoardCanvas.Children.Clear();
+                _persistence.LoadFromJson(cloudData.Content, BoardScrollViewer, BoardScaleTransform, ZoomText);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn<BoardWindow>($"Ошибка перезагрузки при обновлении облака: {ex.Message}");
+        }
     }
 
     #endregion
@@ -222,8 +352,7 @@ public partial class BoardWindow : Window
     private void CloseButton_Click(object sender, RoutedEventArgs e)
     {
         Logger.Info<BoardWindow>("Нажата кнопка 'Закрыть'");
-        SaveBoard();
-        Close();
+        Close(); // OnWindowClosing вызовет SaveBoardImmediate
     }
 
     private void SettingsButton_Click(object sender, RoutedEventArgs e)

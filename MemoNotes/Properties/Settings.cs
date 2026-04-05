@@ -91,4 +91,90 @@ internal sealed class Settings : ApplicationSettingsBase
 
         return false;
     }
+
+    #region Облачная синхронизация
+
+    /// <summary>
+    /// Провайдер облачного хранилища. 0 = отключено, 1 = Яндекс Диск.
+    /// </summary>
+    [UserScopedSetting]
+    [DefaultSettingValue("0")]
+    public int CloudProvider
+    {
+        get => (int)this["CloudProvider"];
+        set => this["CloudProvider"] = value;
+    }
+
+    /// <summary>
+    /// OAuth-токен для доступа к облачному хранилищу.
+    /// </summary>
+    [UserScopedSetting]
+    [DefaultSettingValue("")]
+    public string CloudOAuthToken
+    {
+        get => (string)this["CloudOAuthToken"];
+        set => this["CloudOAuthToken"] = value;
+    }
+
+    /// <summary>
+    /// Refresh-токен для обновления OAuth-токена.
+    /// </summary>
+    [UserScopedSetting]
+    [DefaultSettingValue("")]
+    public string CloudRefreshToken
+    {
+        get => (string)this["CloudRefreshToken"];
+        set => this["CloudRefreshToken"] = value;
+    }
+
+    /// <summary>
+    /// Дата/время истечения действия OAuth-токена (UTC, ISO 8601).
+    /// </summary>
+    [UserScopedSetting]
+    [DefaultSettingValue("")]
+    public string CloudTokenExpiresAt
+    {
+        get => (string)this["CloudTokenExpiresAt"];
+        set => this["CloudTokenExpiresAt"] = value;
+    }
+
+    /// <summary>
+    /// Проверяет, истёк ли OAuth-токен (с запасом 5 минут).
+    /// </summary>
+    public bool IsCloudTokenExpired()
+    {
+        if (string.IsNullOrWhiteSpace(CloudTokenExpiresAt))
+            return true;
+        
+        if (DateTime.TryParse(CloudTokenExpiresAt, null, System.Globalization.DateTimeStyles.RoundtripKind, out var expiresAt))
+        {
+            return DateTime.UtcNow >= expiresAt.AddMinutes(-5);
+        }
+        
+        return true;
+    }
+
+    /// <summary>
+    /// ETag последней синхронизированной версии файла (для определения конфликтов).
+    /// </summary>
+    [UserScopedSetting]
+    [DefaultSettingValue("")]
+    public string CloudRemoteETag
+    {
+        get => (string)this["CloudRemoteETag"];
+        set => this["CloudRemoteETag"] = value;
+    }
+
+    /// <summary>
+    /// Время последней синхронизации в формате ISO 8601 (roundtrip).
+    /// </summary>
+    [UserScopedSetting]
+    [DefaultSettingValue("")]
+    public string CloudLastSyncTime
+    {
+        get => (string)this["CloudLastSyncTime"];
+        set => this["CloudLastSyncTime"] = value;
+    }
+
+    #endregion
 }

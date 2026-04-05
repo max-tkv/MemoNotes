@@ -6,7 +6,7 @@
         xmlns:enums="clr-namespace:MemoNotes.Enums"
         xmlns:fa="clr-namespace:FontAwesome.WPF;assembly=FontAwesome.WPF"
         mc:Ignorable="d"
-        Title="Настройки" Height="400" Width="400"
+        Title="Настройки" Height="600" Width="420"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         ShowInTaskbar="False" Topmost="True"
         WindowStartupLocation="CenterScreen"
@@ -260,92 +260,219 @@
 
                 <!-- Содержимое настроек -->
                 <Grid Margin="20,40,20,20">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
 
-                    <TextBlock
-                        Grid.Row="0"
-                        Text="Угол активации:"
-                        FontSize="14"
-                        Foreground="#cccccc"
-                        VerticalAlignment="Center"
-                        Margin="0,0,0,10"/>
-
-                    <ComboBox
-                        Grid.Row="1"
-                        x:Name="CornerComboBox"
-                        Style="{StaticResource CustomComboBoxStyle}"
-                        ItemContainerStyle="{StaticResource CustomComboBoxItemStyle}"
-                        Height="32"
-                        SelectedIndex="0">
-                        <ComboBoxItem Content="Верхний левый" Tag="{x:Static enums:MousePosition.UpperLeft}"/>
-                        <ComboBoxItem Content="Верхний правый" Tag="{x:Static enums:MousePosition.UpperRight}"/>
-                        <ComboBoxItem Content="Нижний левый" Tag="{x:Static enums:MousePosition.BottomLeft}"/>
-                        <ComboBoxItem Content="Нижний правый" Tag="{x:Static enums:MousePosition.BottomRight}"/>
-                    </ComboBox>
-
-                    <!-- Разделитель -->
-                    <Border Grid.Row="2" Height="1" Background="#3e3e42" Margin="0,15,0,15"/>
-
-                    <!-- Клавиша непрерывного рисования -->
-                    <TextBlock
-                        Grid.Row="3"
-                        Text="Клавиша непрерывного рисования:"
-                        FontSize="14"
-                        Foreground="#cccccc"
-                        VerticalAlignment="Center"
-                        Margin="0,0,0,4"
-                        TextWrapping="Wrap"/>
-                    <TextBlock
-                        Grid.Row="4"
-                        Text="Зажатая клавиша = один элемент"
-                        FontSize="11"
-                        Foreground="#888888"
-                        VerticalAlignment="Center"
-                        Margin="0,0,0,4"/>
-
-                    <Grid Grid.Row="5">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-
-                        <TextBox
-                            x:Name="ContinuousStrokeKeyTextBox"
-                            Height="32"
-                            IsReadOnly="True"
-                            Text="Нет"
-                            Foreground="#cccccc"
+                        <!-- Заголовок: Угол активации -->
+                        <TextBlock
+                            Grid.Row="0"
+                            Text="Угол активации:"
                             FontSize="14"
-                            VerticalContentAlignment="Center"
-                            Padding="8,0"
-                            Background="#3e3e42"
-                            BorderBrush="#1c1c1c"
-                            BorderThickness="1"
-                            CaretBrush="White"
-                            ToolTip="Нажмите на поле, затем зажмите модификаторы и клавишу"
-                            PreviewMouseLeftButtonDown="ContinuousStrokeKeyTextBox_MouseDown"
-                            LostFocus="ContinuousStrokeKeyTextBox_LostFocus"/>
-                        <Button
-                            Grid.Column="1"
-                            Content="Сброс"
-                            Height="32"
-                            Width="60"
-                            Margin="5,0,0,0"
-                            Background="#3e3e42"
                             Foreground="#cccccc"
-                            BorderBrush="#1c1c1c"
-                            BorderThickness="1"
+                            VerticalAlignment="Center"
+                            Margin="0,0,0,10"/>
+
+                        <ComboBox
+                            Grid.Row="1"
+                            x:Name="CornerComboBox"
+                            Style="{StaticResource CustomComboBoxStyle}"
+                            ItemContainerStyle="{StaticResource CustomComboBoxItemStyle}"
+                            Height="32"
+                            SelectedIndex="0">
+                            <ComboBoxItem Content="Верхний левый" Tag="{x:Static enums:MousePosition.UpperLeft}"/>
+                            <ComboBoxItem Content="Верхний правый" Tag="{x:Static enums:MousePosition.UpperRight}"/>
+                            <ComboBoxItem Content="Нижний левый" Tag="{x:Static enums:MousePosition.BottomLeft}"/>
+                            <ComboBoxItem Content="Нижний правый" Tag="{x:Static enums:MousePosition.BottomRight}"/>
+                        </ComboBox>
+
+                        <!-- Разделитель -->
+                        <Border Grid.Row="2" Height="1" Background="#3e3e42" Margin="0,15,0,15"/>
+
+                        <!-- Клавиша непрерывного рисования -->
+                        <TextBlock
+                            Grid.Row="3"
+                            Text="Клавиша непрерывного рисования:"
+                            FontSize="14"
+                            Foreground="#cccccc"
+                            VerticalAlignment="Center"
+                            Margin="0,0,0,4"
+                            TextWrapping="Wrap"/>
+                        <TextBlock
+                            Grid.Row="4"
+                            Text="Зажатая клавиша = один элемент"
+                            FontSize="11"
+                            Foreground="#888888"
+                            VerticalAlignment="Center"
+                            Margin="0,0,0,4"/>
+
+                        <Grid Grid.Row="5">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBox
+                                x:Name="ContinuousStrokeKeyTextBox"
+                                Height="32"
+                                IsReadOnly="True"
+                                Text="Нет"
+                                Foreground="#cccccc"
+                                FontSize="14"
+                                VerticalContentAlignment="Center"
+                                Padding="8,0"
+                                Background="#3e3e42"
+                                BorderBrush="#1c1c1c"
+                                BorderThickness="1"
+                                CaretBrush="White"
+                                ToolTip="Нажмите на поле, затем зажмите модификаторы и клавишу"
+                                PreviewMouseLeftButtonDown="ContinuousStrokeKeyTextBox_MouseDown"
+                                LostFocus="ContinuousStrokeKeyTextBox_LostFocus"/>
+                            <Button
+                                Grid.Column="1"
+                                Content="Сброс"
+                                Height="32"
+                                Width="60"
+                                Margin="5,0,0,0"
+                                Background="#3e3e42"
+                                Foreground="#cccccc"
+                                BorderBrush="#1c1c1c"
+                                BorderThickness="1"
+                                FontSize="13"
+                                Click="ResetContinuousStrokeKey_Click"/>
+                        </Grid>
+
+                        <!-- Разделитель -->
+                        <Border Grid.Row="6" Height="1" Background="#3e3e42" Margin="0,15,0,15"/>
+
+                        <!-- Заголовок секции: Облако -->
+                        <StackPanel Grid.Row="7" Orientation="Horizontal" Margin="0,0,0,10">
+                            <fa:ImageAwesome Icon="CloudUpload"
+                                             Foreground="#4a9eff"
+                                             Width="16"
+                                             Height="16"
+                                             VerticalAlignment="Center"
+                                             Margin="0,0,6,0"/>
+                            <TextBlock Text="Облачная синхронизация"
+                                       FontSize="14"
+                                       Foreground="#4a9eff"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+
+                        <!-- Выбор провайдера -->
+                        <TextBlock
+                            Grid.Row="8"
+                            Text="Провайдер:"
                             FontSize="13"
-                            Click="ResetContinuousStrokeKey_Click"/>
+                            Foreground="#cccccc"
+                            VerticalAlignment="Center"
+                            Margin="0,0,0,6"/>
+
+                        <ComboBox
+                            Grid.Row="9"
+                            x:Name="CloudProviderComboBox"
+                            Style="{StaticResource CustomComboBoxStyle}"
+                            ItemContainerStyle="{StaticResource CustomComboBoxItemStyle}"
+                            Height="32"
+                            SelectedIndex="0">
+                            <ComboBoxItem Content="Отключено" Tag="0"/>
+                            <ComboBoxItem Content="Яндекс Диск" Tag="1"/>
+                        </ComboBox>
+
+                        <!-- Подсказка -->
+                        <TextBlock
+                            Grid.Row="10"
+                            x:Name="CloudHintText"
+                            Text="Данные автоматически сохраняются на Яндекс Диск при каждом изменении доски"
+                            FontSize="11"
+                            Foreground="#888888"
+                            VerticalAlignment="Center"
+                            Margin="0,6,0,6"
+                            TextWrapping="Wrap"
+                            Visibility="Collapsed"/>
+
+                        <!-- Кнопки авторизации -->
+                        <Grid Grid.Row="11" x:Name="CloudAuthPanel" Visibility="Collapsed">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Button
+                                x:Name="CloudAuthButton"
+                                Grid.Column="0"
+                                Content="🔗  Авторизоваться через Яндекс"
+                                Height="32"
+                                Background="#4a9eff"
+                                Foreground="White"
+                                BorderBrush="#3a8eef"
+                                BorderThickness="1"
+                                FontSize="13"
+                                FontWeight="SemiBold"
+                                Click="CloudAuthButton_Click"
+                                ToolTip="Открыть браузер для авторизации на Яндекс Диске"
+                                Cursor="Hand"/>
+
+                            <Button
+                                Grid.Column="1"
+                                x:Name="CloudLogoutButton"
+                                Height="32"
+                                Width="75"
+                                Margin="5,0,0,0"
+                                Background="#3e3e42"
+                                Foreground="#cccccc"
+                                BorderBrush="#1c1c1c"
+                                BorderThickness="1"
+                                FontSize="12"
+                                Content="Выйти"
+                                Click="CloudLogoutButton_Click"
+                                Visibility="Collapsed"
+                                ToolTip="Выйти из учётной записи Яндекс"/>
+                            
+                        </Grid>
+
+                        <!-- Статус подключения -->
+                        <StackPanel
+                            Grid.Row="12"
+                            x:Name="CloudStatusPanel"
+                            Orientation="Horizontal"
+                            Margin="0,8,0,0"
+                            Visibility="Collapsed">
+                            <Ellipse x:Name="CloudStatusDot"
+                                     Width="10"
+                                     Height="10"
+                                     Fill="#555555"
+                                     VerticalAlignment="Center"
+                                     Margin="0,0,6,0"/>
+                            <TextBlock x:Name="CloudStatusText"
+                                       Text="Не подключено"
+                                       FontSize="12"
+                                       Foreground="#888888"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+
                     </Grid>
-                </Grid>
             </Grid>
         </Border>
     </Grid>

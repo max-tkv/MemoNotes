@@ -228,13 +228,26 @@
                         </Button>
                     </StackPanel>
 
-                    <!-- Зум индикатор -->
-                    <TextBlock x:Name="ZoomText"
-                               Text="100%"
-                               Foreground="#888888"
-                               FontSize="12"
-                               VerticalAlignment="Center"
-                               HorizontalAlignment="Center"/>
+                    <!-- Центральная панель: индикатор синхронизации + зум -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <!-- Индикатор синхронизации -->
+                        <StackPanel x:Name="SyncIndicator"
+                                    Orientation="Horizontal"
+                                    Visibility="Collapsed"
+                                    ToolTip="Синхронизация с облаком..."
+                                    Margin="0,0,8,0">
+                            <fa:ImageAwesome Icon="Cloud" Width="12" Height="12" Foreground="#4FC3F7"/>
+                            <fa:ImageAwesome Icon="Spinner" Width="12" Height="12"
+                                             Foreground="#4FC3F7" Spin="True" Margin="4,0,0,0"/>
+                        </StackPanel>
+
+                        <!-- Зум индикатор -->
+                        <TextBlock x:Name="ZoomText"
+                                   Text="100%"
+                                   Foreground="#888888"
+                                   FontSize="12"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
 
                     <!-- Кнопки управления окном справа -->
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,10,0">
