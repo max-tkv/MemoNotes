@@ -21,13 +21,13 @@ public static class CloudSyncManager
     /// Client ID приложения OAuth для Яндекс Диска.
     /// Зарегистрирован на https://oauth.yandex.ru/
     /// </summary>
-    public const string YandexClientId = "7202d89c6a90467ea543bcbb21b0fbdf";
+    public const string YandexClientId = "<YandexClientId>";
 
     /// <summary>
     /// Client Secret приложения OAuth для Яндекс Диска.
     /// Обязателен для приложений типа «Веб-сервисы».
     /// </summary>
-    public const string YandexClientSecret = "372a5103e6a34d4389f3c16bf8f1b43f";
+    public const string YandexClientSecret = "<YandexClientSecret>";
 
     private static ICloudSyncService? _service;
     private static readonly SemaphoreSlim _syncLock = new(1, 1);
