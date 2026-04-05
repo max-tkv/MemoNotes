@@ -4,9 +4,12 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Threading;
+using MemoNotes.Enums;
 using MemoNotes.Models;
 using MemoNotes.Properties;
 using MemoNotes.Service.CheckerMousePosition;
+using MemoNotes.Service.CloudSync;
+using MemoNotes.Service.Logging;
 using Application = System.Windows.Application;
 using MousePosition = MemoNotes.Service.CheckerMousePosition.MousePosition;
 
@@ -43,6 +46,10 @@ public partial class MainWindow : Window
         // Загружаем сохранённый угол активации
         LoadStartupCorner();
         LoadContinuousStrokeKey();
+        LoadCloudSettings();
+
+        // Инициализируем менеджер облачной синхронизации
+        CloudSyncManager.Initialize();
 
         // Скрываем главное окно
         Hide();
@@ -254,6 +261,144 @@ public partial class MainWindow : Window
         Settings.Default.Save();
         ContinuousStrokeKeyTextBox.Text = "Нет";
     }
+
+    #region Облачная синхронизация
+
+    private void LoadCloudSettings()
+    {
+        CloudProviderComboBox.SelectionChanged += CloudProviderComboBox_SelectionChanged;
+        CloudSyncManager.TokenRevoked += OnTokenRevoked;
+
+        var provider = (CloudProvider)Settings.Default.CloudProvider;
+        CloudProviderComboBox.SelectedIndex = (int)provider;
+
+        UpdateCloudUI((CloudProvider)Settings.Default.CloudProvider);
+
+        if (CloudSyncManager.IsEnabled)
+        {
+            SetCloudStatus(true, "Подключено");
+            CloudAuthButton.Visibility = Visibility.Collapsed;
+            CloudLogoutButton.Visibility = Visibility.Visible;
+        }
+    }
+
+    private void OnTokenRevoked(string? message)
+    {
+        // Вызывается через Dispatcher из CloudSyncManager.HandleTokenRevoked
+        SetCloudStatus(false, message ?? "Токен отозван");
+        CloudAuthButton.Visibility = Visibility.Visible;
+        CloudLogoutButton.Visibility = Visibility.Collapsed;
+    }
+
+    private void UpdateCloudUI(CloudProvider provider)
+    {
+        if (CloudHintText == null) return;
+        
+        var isCloudEnabled = provider != CloudProvider.None;
+        
+        CloudHintText.Visibility = isCloudEnabled ? Visibility.Visible : Visibility.Collapsed;
+        CloudAuthPanel.Visibility = isCloudEnabled ? Visibility.Visible : Visibility.Collapsed;
+        CloudStatusPanel.Visibility = isCloudEnabled ? Visibility.Visible : Visibility.Collapsed;
+        
+        if (isCloudEnabled && provider == CloudProvider.YandexDisk)
+            CloudHintText.Text = "Данные автоматически сохраняются на Яндекс Диск при каждом изменении доски";
+
+        // Скрываем кнопку авторизации, если уже подключены
+        if (CloudSyncManager.IsEnabled)
+        {
+            CloudAuthButton.Visibility = Visibility.Collapsed;
+            CloudLogoutButton.Visibility = Visibility.Visible;
+        }
+    }
+
+    private void CloudProviderComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsInitialized || CloudProviderComboBox == null) return;
+        if (CloudProviderComboBox.SelectedItem is not ComboBoxItem item) return;
+        
+        if (!int.TryParse(item.Tag?.ToString(), out var providerValue)) return;
+        var provider = (CloudProvider)providerValue;
+        
+        Settings.Default.CloudProvider = providerValue;
+        Settings.Default.Save();
+        
+        UpdateCloudUI(provider);
+        CloudSyncManager.Reinitialize();
+        
+        if (provider == CloudProvider.None)
+        {
+            SetCloudStatus(false, "Синхронизация отключена");
+            CloudAuthButton.Visibility = Visibility.Visible;
+            CloudLogoutButton.Visibility = Visibility.Collapsed;
+        }
+        else if (!CloudSyncManager.IsEnabled)
+        {
+            SetCloudStatus(false, "Нажмите «Авторизоваться» для подключения");
+            CloudAuthButton.Visibility = Visibility.Visible;
+            CloudLogoutButton.Visibility = Visibility.Collapsed;
+        }
+        else
+        {
+            SetCloudStatus(true, "Подключено");
+            CloudAuthButton.Visibility = Visibility.Collapsed;
+            CloudLogoutButton.Visibility = Visibility.Visible;
+        }
+    }
+
+    private async void CloudAuthButton_Click(object sender, RoutedEventArgs e)
+    {
+        SetCloudStatus(null, "Авторизация...");
+        CloudAuthButton.IsEnabled = false;
+
+        try
+        {
+            var success = await CloudSyncManager.AuthorizeAsync(this);
+             
+            if (success)
+            {
+                SetCloudStatus(true, "Подключено");
+                CloudAuthButton.Visibility = Visibility.Collapsed;
+                CloudLogoutButton.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                SetCloudStatus(false, "Авторизация отменена");
+            }
+        }
+        catch (Exception ex)
+        {
+            SetCloudStatus(false, $"Ошибка: {ex.Message}");
+        }
+        finally
+        {
+            CloudAuthButton.IsEnabled = true;
+        }
+    }
+
+    private void CloudLogoutButton_Click(object sender, RoutedEventArgs e)
+    {
+        CloudSyncManager.Logout();
+        SetCloudStatus(false, "Не подключено");
+        CloudAuthButton.Visibility = Visibility.Visible;
+        CloudLogoutButton.Visibility = Visibility.Collapsed;
+    }
+
+    private void SetCloudStatus(bool? isConnected, string text)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            if (isConnected == true)
+                CloudStatusDot.Fill = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x4c, 0xaf, 0x50));
+            else if (isConnected == false)
+                CloudStatusDot.Fill = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xf4, 0x43, 0x36));
+            else
+                CloudStatusDot.Fill = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0xff, 0xb3, 0x00));
+
+            CloudStatusText.Text = text;
+        });
+    }
+
+    #endregion
 
     /// <summary>
     /// Форматировать сочетание клавиш в читаемую строку.

@@ -19,13 +19,14 @@
         <Copyright>© 2026 Darkuty Studio</Copyright>
 
         <!-- Версия -->
-        <Version>2.0.5</Version>
-        <AssemblyVersion>2.0.5</AssemblyVersion>
-        <FileVersion>2.0.5</FileVersion>
+        <Version>2.0.6</Version>
+        <AssemblyVersion>2.0.6</AssemblyVersion>
+        <FileVersion>2.0.6</FileVersion>
     </PropertyGroup>
 
     <ItemGroup>
         <PackageReference Include="FontAwesome.WPF" Version="4.7.0.9" />
+        <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3856.49" />
         <PackageReference Include="System.Windows.Forms" Version="4.0.0" />
     </ItemGroup>
 
