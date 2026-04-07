@@ -6,6 +6,10 @@
 
 ## Особенности
 
+<img width="1800" height="1023" alt="image" src="https://github.com/user-attachments/assets/0300a649-5862-4193-9da3-43e3e2c60d13" />
+<img width="837" height="1199" alt="image" src="https://github.com/user-attachments/assets/61c35c64-0c78-4cca-ad0f-af6759a942b8" />
+
+
 ### 🗺️ Интерактивная доска
 - **Бесконечный canvas** с точечной сеткой-фоном, динамически подстраивающейся под масштаб и размер окна
 - **Зум** колёсиком мыши с масштабированием к позиции курсора (10%–500%)
