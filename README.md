@@ -6,8 +6,12 @@
 
 ## Особенности
 
-<img width="1800" height="1023" alt="image" src="https://github.com/user-attachments/assets/0300a649-5862-4193-9da3-43e3e2c60d13" />
-<img width="837" height="1199" alt="image" src="https://github.com/user-attachments/assets/61c35c64-0c78-4cca-ad0f-af6759a942b8" />
+<table>
+  <tr>
+    <td><img src="https://github.com/user-attachments/assets/0300a649-5862-4193-9da3-43e3e2c60d13" alt="image" width="400" /></td>
+    <td><img src="https://github.com/user-attachments/assets/61c35c64-0c78-4cca-ad0f-af6759a942b8" alt="image" width="100" /></td>
+  </tr>
+</table>
 
 
 ### 🗺️ Интерактивная доска
